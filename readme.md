@@ -1,4 +1,6 @@
-![PDF Compressor](https://raw.githubusercontent.com/janosh/pdf-compressor/main/assets/pdf-compressor.svg)
+<p align="center">
+  <img src="https://raw.githubusercontent.com/janosh/pdf-compressor/main/assets/pdf-compressor.svg" alt="PDF Compressor" height=150>
+</p>
 
 [![Tests](https://github.com/janosh/pdf-compressor/workflows/Tests/badge.svg)](https://github.com/janosh/pdf-compressor/actions)
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/janosh/pdf-compressor/main.svg)](https://results.pre-commit.ci/latest/github/janosh/pdf-compressor/main)
@@ -33,8 +35,8 @@ pdf-compressor **/*.pdf
 
 `pdf-compressor` has the following flags:
 
-- **`-i/--inplace`** (optional, default: `False`): Whether to compress PDFs in place.
-- **`-s/--suffix`** (optional, default: `-compressed`): String to append to the filename of compressed PDFs. Mutually exclusive with `--inplace` flag.
-- **`--set-api-key`** (optional): Set the public key needed to authenticate with the iLovePDF API.
-- **`--debug`** (optional, default: `False`): When true, iLovePDF won't process the request but only reports the parameters that would have been sent to the server.
-- **`-v/--version`** (optional): Get the current version.
+- `-i/--inplace` (optional, default: `False`): Whether to compress PDFs in place.
+- `-s/--suffix` (optional, default: `-compressed`): String to append to the filename of compressed PDFs. Mutually exclusive with `--inplace` flag.
+- `--set-api-key` (optional): Set the public key needed to authenticate with the iLovePDF API.
+- `--debug` (optional, default: `False`): When true, iLovePDF won't process the request but only reports the parameters that would have been sent to the server.
+- `-v/--version` (optional): Get the current version.

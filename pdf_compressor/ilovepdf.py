@@ -21,22 +21,31 @@ class ILovePDF:
         self.working_server = ""
 
         # header will contain authorization token to be sent with every task
-        self.headers: Dict[str, str]
+        self.headers: Union[Dict[str, str], None] = None
+
+        self.auth()
+
+    def auth(self) -> None:
+        """Get iLovePDF API session token."""
+
+        payload = {"public_key": self.public_key}
+
+        response = self._send_request("post", endpoint="auth", payload=payload)
+
+        self.headers = {"Authorization": f"Bearer {response.json()['token']}"}
 
     def _send_request(
         self,
-        method: str,
+        type: str,
         endpoint: str,
         payload: Mapping[str, Union[str, bool]] = None,
-        headers: Dict[str, str] = None,
         files: Dict[str, BinaryIO] = None,
         stream: bool = False,
     ) -> requests.Response:
 
-        if method not in ["get", "post"]:
+        if type not in ["get", "post"]:
             raise ValueError(
-                "Only 'post' and 'get' requests are used to interact with the iLovePDF API. "
-                f"_send_request() got {method=}"
+                f"iLovePDF API only accepts 'post' and 'get' requests, got {type=}"
             )
 
         # continue to use old server if task was already assigned one, else connect to new one
@@ -44,11 +53,15 @@ class ILovePDF:
 
         url = f"https://{server}/{self.api_version}/{endpoint}"
 
-        response = getattr(requests, method)(
-            url, data=payload, headers=headers, files=files, stream=stream
+        response = getattr(requests, type)(
+            url, data=payload, headers=self.headers, files=files, stream=stream
         )
 
-        response.raise_for_status()
+        if not response.ok:
+            raise ValueError(
+                f"Error: {response.url} returned status code {response.status_code} with "
+                f"reason '{response.reason}'. Full response text is: {response.text}."
+            )
 
         return response
 
@@ -67,8 +80,9 @@ class Task(ILovePDF):
             public_key (str): iLovePDF API key.
             tool (str): The desired API tool you wish to access. Possible values: merge, split,
                 compress, pdfjpg, imagepdf, unlock, pagenumber, watermark, officepdf, repair,
-                rotate, protect, pdfa, validatepdfa, htmlpdf, extract.
-                See https://developer.ilovepdf.com/docs/api-reference#process.
+                rotate, protect, pdfa, validatepdfa, htmlpdf, extract. pdf-compressor only
+                supports 'compress'.
+                https://developer.ilovepdf.com/docs/api-reference#process.
             verbose (bool, optional): How much printing to do. Defaults to False.
             debug (bool, optional): Whether to perform real API requests (consumes quota) or
                 just report what would happen. Defaults to False.
@@ -88,6 +102,12 @@ class Task(ILovePDF):
         self.tool = tool
 
         # API options below (https://developer.ilovepdf.com/docs/api-reference#process)
+        # available place holders in output/packaged_filename (will be inserted by iLovePDF):
+        # {date} = current date
+        # {n} = file number
+        # {filename} = original filename
+        # {app} = current processing tool (e.g. compress)
+        # https://developer.ilovepdf.com/docs/api-reference#output_filename
         self.payload: Dict[str, Union[str, bool]] = {
             "task": self.task,
             "tool": tool,
@@ -98,30 +118,11 @@ class Task(ILovePDF):
             "try_pdf_repair": True,
         }
 
-        # available place holders in output/packaged_filename (will be inserted by iLovePDF):
-        # {date} = current date
-        # {n} = file number
-        # {filename} = original filename
-        # {app} = current processing tool (e.g. compress)
-        # https://developer.ilovepdf.com/docs/api-reference#output_filename
-
-        self.auth()
         self.start()
-
-    def auth(self) -> None:
-        """Get iLovePDF API session token."""
-
-        payload = {"public_key": self.public_key}
-
-        response = self._send_request(
-            "post", endpoint="auth", payload=payload, headers=None
-        )
-
-        self.headers = {"Authorization": f"Bearer {response.json()['token']}"}
 
     def start(self) -> None:
 
-        response = self._send_request("get", f"start/{self.tool}", headers=self.headers)
+        response = self._send_request("get", f"start/{self.tool}")
 
         self.working_server = response.json()["server"]
         self.task = response.json()["task"]
@@ -140,11 +141,7 @@ class Task(ILovePDF):
 
             with open(filename, "rb") as file:
                 response = self._send_request(
-                    "post",
-                    "upload",
-                    payload={"task": self.task},
-                    headers=self.headers,
-                    files={"file": file},
+                    "post", "upload", payload={"task": self.task}, files={"file": file}
                 )
 
             self.files[filename] = response.json()["server_filename"]
@@ -177,9 +174,7 @@ class Task(ILovePDF):
             payload[f"files[{idx}][filename]"] = filename
             payload[f"files[{idx}][server_filename]"] = server_filename
 
-        response = self._send_request(
-            "post", "process", payload=payload, headers=self.headers
-        )
+        response = self._send_request("post", "process", payload=payload)
 
         if verbose:
 
@@ -208,9 +203,9 @@ class Task(ILovePDF):
             )
             return None
 
-        endpoint, headers = f"download/{self.task}", self.headers
+        endpoint = f"download/{self.task}"
 
-        response = self._send_request("get", endpoint, headers=headers, stream=True)
+        response = self._send_request("get", endpoint, stream=True)
 
         if self.verbose:
             print("Downloading processed file(s)...")
@@ -227,7 +222,7 @@ class Task(ILovePDF):
 
     def delete_current_task(self) -> None:
 
-        self._send_request("post", f"task/{self.task}", None, headers=self.headers)
+        self._send_request("post", f"task/{self.task}")
 
     def get_task_information(self) -> requests.Response:
         """Get task status information.
@@ -238,7 +233,7 @@ class Task(ILovePDF):
         Returns:
             Response: request response object
         """
-        return self._send_request("get", f"task/{self.task}", headers=self.headers)
+        return self._send_request("get", f"task/{self.task}")
 
 
 class Compress(Task):

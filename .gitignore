@@ -3,4 +3,4 @@ __pycache__
 dist
 build
 tests/pdfs
-pdf_compressor/env.py
+.env

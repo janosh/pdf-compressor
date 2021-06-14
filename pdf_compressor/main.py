@@ -2,14 +2,14 @@ import os
 import sys
 from argparse import ArgumentParser
 from importlib.metadata import version
-from os.path import abspath, basename, dirname, expanduser
-from typing import Optional, Sequence
+from os.path import exists, expanduser, getsize, relpath, split
+from typing import Sequence
 
 from .ilovepdf import Compress
-from .utils import sizeof_fmt
+from .utils import ROOT, load_dotenv, sizeof_fmt
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] = None) -> int:
 
     parser = ArgumentParser(
         "PyDF Compress", description="Batch compress PDFs powered by iLovePDF.com"
@@ -17,7 +17,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     parser.add_argument(
         "--set-api-key",
-        help="Set the public key needed to authenticate with the iLovePDF API.",
+        help="Set the public key needed to authenticate with the iLovePDF API. Exits "
+        "immediately afterwards ignoring all other flags.",
     )
 
     parser.add_argument("filenames", nargs="*", help="List of PDF files to compress.")
@@ -53,8 +54,8 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     if args.set_api_key:
 
-        with open(f"{dirname(abspath(__file__))}/env.py", "w+") as file:
-            file.write(f'ILOVEPDF_PUBLIC_KEY = "{args.set_api_key}"\n')
+        with open(f"{ROOT}/.env", "w+") as file:
+            file.write(f"ILOVEPDF_PUBLIC_KEY={args.set_api_key}\n")
 
         return 0
 
@@ -62,27 +63,33 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     # convert to absolute paths
     paths = [a if a.startswith("/") else f"{os.getcwd()}/{a}" for a in args.filenames]
     # Keep only paths pointing to PDFs that exist.
-    pdfs = [p for p in paths if p.endswith(".pdf") and os.path.exists(p)]
+    pdfs = [p for p in paths if p.endswith(".pdf") and exists(p)]
 
     assert (
         pdfs
     ), f"Invalid arguments, files must be PDFs, got {len(paths)} files without .pdf extension."
 
-    print(f"{(n_pdfs := len(pdfs))} PDFs to be compressed with iLovePDF:")
+    print(f"{len(pdfs)} PDFs to be compressed with iLovePDF:")
     for pdf in pdfs:
-        print(f"- {basename(pdf)}")
+        print(f"- {relpath(pdf, expanduser('~'))}")
 
     trash_path = f"{expanduser('~')}/.Trash"
 
-    from .env import ILOVEPDF_PUBLIC_KEY
+    load_dotenv()
 
-    task = Compress(ILOVEPDF_PUBLIC_KEY, debug=args.debug)
+    if not (api_key := os.environ["ILOVEPDF_PUBLIC_KEY"]):
+        raise ValueError(
+            "pdf-compressor needs a iLovePDF public key to access its API. Set one with "
+            "pdf-compressor --set-api-key project_public_7af905e..."
+        )
+
+    task = Compress(api_key, debug=args.debug)
 
     for idx, pdf_path in enumerate(pdfs, 1):
 
         task.add_file(pdf_path)
 
-        dir_name, pdf_name = os.path.split(pdf_path)
+        dir_name, pdf_name = split(pdf_path)
 
         task.set_output_folder(dir_name)
 
@@ -95,14 +102,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
         compressed_pdf_path = f"{dir_name}/{compressed_pdf_name}"
 
-        orig_size = os.path.getsize(pdf_path)
-        compressed_size = os.path.getsize(compressed_pdf_path)
+        orig_size = getsize(pdf_path)
+        compressed_size = getsize(compressed_pdf_path)
 
         diff = orig_size - compressed_size
         if diff > 0:
             percent_diff = 100 * diff / orig_size
             print(
-                f"{idx}/{n_pdfs} Compressed PDF '{pdf_name}' is {sizeof_fmt(diff)} "
+                f"{idx}/{len(pdfs)} Compressed PDF '{pdf_name}' is {sizeof_fmt(diff)} "
                 f"({percent_diff:.2g} %) smaller than the original "
                 f"({sizeof_fmt(compressed_size)} vs {sizeof_fmt(orig_size)}). Using "
                 "compressed file."
@@ -124,7 +131,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
         else:
             print(
-                f"{idx}/{n_pdfs} Compressed '{pdf_name}' no smaller than original "
+                f"{idx}/{len(pdfs)} Compressed '{pdf_name}' no smaller than original "
                 "file. Keeping original."
             )
             os.remove(compressed_pdf_path)

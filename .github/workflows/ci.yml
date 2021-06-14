@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['**.py'] # only run workflow when source files changed
+    paths: ['**.py', '**.yml'] # only run workflow when source files changed
   pull_request:
     branches: [main]
-    paths: ['**.py']
+    paths: ['**.py', '**.yml']
 
 jobs:
   tests:
@@ -30,5 +30,6 @@ jobs:
           pip install .[test]
 
       - name: Run Tests
-        run: |
-          python -m pytest --durations 0
+        run: python -m pytest --durations 0
+        env:
+          ILOVEPDF_PUBLIC_KEY: ${{ secrets.ILOVEPDF_PUBLIC_KEY }}

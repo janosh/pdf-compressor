@@ -1,7 +1,7 @@
 import os
-from importlib import reload
 
-from pdf_compressor import env, main
+from pdf_compressor import main
+from pdf_compressor.utils import load_dotenv
 
 
 def test_main():
@@ -12,16 +12,14 @@ def test_main():
 
 def test_main_set_api_key():
 
-    api_key_file = "pdf_compressor/env.py"
-    backup_file = "env_bak.py"
+    load_dotenv()
 
-    if os.path.exists(api_key_file) and not os.path.exists(backup_file):
-        os.rename(api_key_file, backup_file)
+    api_key = os.environ["ILOVEPDF_PUBLIC_KEY"]  # save API key to reset it later
 
     main(["--set-api-key", "foobar"])
 
-    reload(env)
+    load_dotenv()
 
-    assert env.ILOVEPDF_PUBLIC_KEY == "foobar"
+    assert os.environ["ILOVEPDF_PUBLIC_KEY"] == "foobar"
 
-    os.rename(backup_file, api_key_file)
+    main(["--set-api-key", api_key])  # restore previous value

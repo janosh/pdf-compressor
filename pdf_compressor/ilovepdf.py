@@ -1,3 +1,4 @@
+import json
 import os
 from typing import Any, BinaryIO, Dict, Mapping, Union
 
@@ -33,6 +34,15 @@ class ILovePDF:
         response = self._send_request("post", endpoint="auth", payload=payload)
 
         self.headers = {"Authorization": f"Bearer {response.json()['token']}"}
+
+    def report_quota(self) -> int:
+        response = self._send_request("get", "info")
+
+        remaining_files = json.loads(response.text)["remaining_files"]
+
+        print(f"Remaining files in this billing cycle: {remaining_files:,}")
+
+        return remaining_files
 
     def _send_request(
         self,

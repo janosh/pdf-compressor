@@ -5,7 +5,7 @@ from importlib.metadata import version
 from os.path import exists, expanduser, getsize, relpath, split
 from typing import Sequence
 
-from .ilovepdf import Compress
+from .ilovepdf import Compress, ILovePDF
 from .utils import ROOT, load_dotenv, sizeof_fmt
 
 
@@ -19,6 +19,12 @@ def main(argv: Sequence[str] = None) -> int:
         "--set-api-key",
         help="Set the public key needed to authenticate with the iLovePDF API. Exits "
         "immediately afterwards ignoring all other flags.",
+    )
+
+    parser.add_argument(
+        "--report-quota",
+        action="store_true",
+        help="Report how much of the monthly quota for the current API key has been used up.",
     )
 
     parser.add_argument("filenames", nargs="*", help="List of PDF files to compress.")
@@ -52,10 +58,28 @@ def main(argv: Sequence[str] = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    if args.set_api_key:
+    if api_key := args.set_api_key:
+
+        assert api_key.startswith(
+            "project_public_"
+        ), f"invalid API key, expected to start with 'project_public_', got {api_key=}"
 
         with open(f"{ROOT}/.env", "w+") as file:
-            file.write(f"ILOVEPDF_PUBLIC_KEY={args.set_api_key}\n")
+            file.write(f"ILOVEPDF_PUBLIC_KEY={api_key}\n")
+
+        return 0
+
+    load_dotenv()
+
+    if not (api_key := os.environ["ILOVEPDF_PUBLIC_KEY"]):
+        raise ValueError(
+            "pdf-compressor needs a iLovePDF public key to access its API. Set one with "
+            "pdf-compressor --set-api-key project_public_7af905e..."
+        )
+
+    if args.report_quota:
+
+        ILovePDF(api_key).report_quota()
 
         return 0
 
@@ -74,14 +98,6 @@ def main(argv: Sequence[str] = None) -> int:
         print(f"- {relpath(pdf, expanduser('~'))}")
 
     trash_path = f"{expanduser('~')}/.Trash"
-
-    load_dotenv()
-
-    if not (api_key := os.environ["ILOVEPDF_PUBLIC_KEY"]):
-        raise ValueError(
-            "pdf-compressor needs a iLovePDF public key to access its API. Set one with "
-            "pdf-compressor --set-api-key project_public_7af905e..."
-        )
 
     task = Compress(api_key, debug=args.debug)
 

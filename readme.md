@@ -2,14 +2,14 @@
   <img src="https://raw.githubusercontent.com/janosh/pdf-compressor/main/assets/pdf-compressor.svg" alt="PDF Compressor" height=150>
 </p>
 
-<p align="center">
+<h3 align="center">
 
 [![Tests](https://github.com/janosh/pdf-compressor/workflows/Tests/badge.svg)](https://github.com/janosh/pdf-compressor/actions)
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/janosh/pdf-compressor/main.svg)](https://results.pre-commit.ci/latest/github/janosh/pdf-compressor/main)
 [![PyPI](https://img.shields.io/pypi/v/pdf-compressor)](https://pypi.org/project/pdf-compressor)
 [![Requires Python 3.8+](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org/downloads)
 
-</p>
+</h3>
 
 > The code in `ilovepdf.py` was inspired by Andrea Bruschi's [`pylovepdf`](https://github.com/AndyCyberSec/pylovepdf).
 
@@ -42,5 +42,6 @@ pdf-compressor **/*.pdf
 - `-i/--inplace` (optional, default: `False`): Whether to compress PDFs in place.
 - `-s/--suffix` (optional, default: `'-compressed'`): String to append to the filename of compressed PDFs. Mutually exclusive with `--inplace` flag.
 - `--set-api-key` (optional): Set the public key needed to authenticate with the iLovePDF API.
+- `--report-quota` (optional): Report the number of remaining file operations in the current billing cycle for the stored iLovePDF public API key.
 - `--debug` (optional, default: `False`): When true, iLovePDF won't process the request but only reports the parameters that would have been sent to the server.
 - `-v/--version` (optional): Get the current version.

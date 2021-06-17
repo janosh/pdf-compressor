@@ -2,7 +2,7 @@ import os
 import sys
 from argparse import ArgumentParser
 from importlib.metadata import version
-from os.path import exists, expanduser, getsize, relpath, split
+from os.path import expanduser, getsize, relpath, split
 from typing import Sequence
 
 from .ilovepdf import Compress, ILovePDF
@@ -28,6 +28,15 @@ def main(argv: Sequence[str] = None) -> int:
     )
 
     parser.add_argument("filenames", nargs="*", help="List of PDF files to compress.")
+
+    parser.add_argument(
+        "--compression-level",
+        "--cl",
+        choices=("low", "recommended", "extreme"),
+        default="recommended",
+        help="How hard to squeeze the file size. 'extreme' noticeably degrades image quality. "
+        "Defaults to 'recommended'.",
+    )
 
     parser.add_argument(
         "-i",
@@ -85,13 +94,21 @@ def main(argv: Sequence[str] = None) -> int:
 
     # if filenames received as command line arguments are relative paths,
     # convert to absolute paths
-    paths = [a if a.startswith("/") else f"{os.getcwd()}/{a}" for a in args.filenames]
+    # paths = [a if a.startswith("/") else f"{os.getcwd()}/{a}" for a in args.filenames]
     # Keep only paths pointing to PDFs that exist.
-    pdfs = [p for p in paths if p.endswith(".pdf") and exists(p)]
 
-    assert (
-        pdfs
-    ), f"Invalid arguments, files must be PDFs, got {len(paths)} files without .pdf extension."
+    pdfs = [file for file in args.filenames if file.lower().endswith(".pdf")]
+    not_pdfs = [file for file in args.filenames if not file.lower().endswith(".pdf")]
+
+    print(
+        f"Warning: got {len(not_pdfs)} input files that don't look like PDFs (based on"
+        f" extension). Skipping... {', '.join(not_pdfs)}"
+    )
+
+    assert pdfs, (
+        f"Invalid arguments, input files must be PDFs, got only {len(not_pdfs)} files without "
+        ".pdf extension."
+    )
 
     print(f"{len(pdfs)} PDFs to be compressed with iLovePDF:")
     for pdf in pdfs:
@@ -99,7 +116,7 @@ def main(argv: Sequence[str] = None) -> int:
 
     trash_path = f"{expanduser('~')}/.Trash"
 
-    task = Compress(api_key, debug=args.debug)
+    task = Compress(api_key, compression_level=args.compression_level, debug=args.debug)
 
     for idx, pdf_path in enumerate(pdfs, 1):
 

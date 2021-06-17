@@ -267,14 +267,13 @@ class Compress(Task):
         Args:
             public_key (str): iLovePDF public API key. Get yours by signing up at
                 https://developer.ilovepdf.com/signup.
-            compression_level (str, optional): How hard to try to squeeze the file size.
-                'extreme' noticeably degrades image quality. Defaults to "recommended".
+            compression_level (str, optional): How hard to squeeze the file size.
+                'extreme' noticeably degrades image quality. Defaults to 'recommended'.
         """
         super().__init__(public_key, tool="compress", **kwargs)
 
-        self.payload["compression_level"] = compression_level
+        assert compression_level in (
+            valid_levels := ("low", "recommended", "extreme")
+        ), f"Invalid {compression_level=}, must be one of {valid_levels}"
 
-        valid_lvls = ("low", "recommended", "extreme")
-        assert (
-            compression_level in valid_lvls
-        ), f"Invalid {compression_level=}, must be one of {valid_lvls}"
+        self.payload["compression_level"] = compression_level

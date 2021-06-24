@@ -92,22 +92,17 @@ def main(argv: Sequence[str] = None) -> int:
 
         return 0
 
-    # if filenames received as command line arguments are relative paths,
-    # convert to absolute paths
-    # paths = [a if a.startswith("/") else f"{os.getcwd()}/{a}" for a in args.filenames]
-    # Keep only paths pointing to PDFs that exist.
+    assert args.inplace or args.suffix, (
+        "Files must either be compressed in-place (--inplace) or you must specify a non-empty "
+        "suffix to append to the name of compressed files."
+    )
 
     pdfs = [file for file in args.filenames if file.lower().endswith(".pdf")]
     not_pdfs = [file for file in args.filenames if not file.lower().endswith(".pdf")]
 
-    print(
-        f"Warning: got {len(not_pdfs)} input files that don't look like PDFs (based on"
-        f" extension). Skipping... {', '.join(not_pdfs)}"
-    )
-
-    assert pdfs, (
-        f"Invalid arguments, input files must be PDFs, got only {len(not_pdfs)} files without "
-        ".pdf extension."
+    assert len(not_pdfs) == 0, (
+        f"Input files must be PDFs, got {len(not_pdfs)} files without .pdf "
+        f"extension: {', '.join(not_pdfs)}"
     )
 
     print(f"{len(pdfs)} PDFs to be compressed with iLovePDF:")
@@ -158,8 +153,10 @@ def main(argv: Sequence[str] = None) -> int:
 
                 os.rename(compressed_pdf_path, pdf_path)
 
-            else:
-                # TODO: implement adding suffix to compressed PDF file name
+            elif args.suffix:
+                path_name, ext = os.path.splitext(pdf_path)
+                pdf_path = f"{path_name}{args.suffix}{ext}"
+
                 os.rename(compressed_pdf_path, pdf_path)
 
         else:

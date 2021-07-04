@@ -131,14 +131,20 @@ class Task(ILovePDF):
         self.start()
 
     def start(self) -> None:
+        """Initiate contact with iLovePDF API to get assigned a working server that will
+        handle ensuing requests.
+        """
 
         response = self._send_request("get", f"start/{self.tool}")
 
         self.working_server = response.json()["server"]
-        self.task = response.json()["task"]
-        self.payload["task"] = self.task
+
+        self.task = self.payload["task"] = response.json()["task"]
 
     def add_file(self, file_path: str) -> None:
+
+        if not os.path.isfile(file_path):
+            raise FileNotFoundError(f"'{file_path}' does not exist")
 
         if file_path in self.files:
             raise ValueError(f"File '{file_path}' was already added.")

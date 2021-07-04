@@ -5,8 +5,8 @@ from importlib.metadata import version
 from os.path import expanduser, getsize, relpath, split
 from typing import Sequence
 
-from .ilovepdf import Compress, ILovePDF
-from .utils import ROOT, load_dotenv, sizeof_fmt
+from pdf_compressor.ilovepdf import Compress, ILovePDF
+from pdf_compressor.utils import ROOT, load_dotenv, sizeof_fmt
 
 
 def main(argv: Sequence[str] = None) -> int:

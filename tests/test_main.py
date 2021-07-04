@@ -9,7 +9,7 @@ from pdf_compressor.utils import load_dotenv
 def test_main():
     """Test standard main() invocation."""
 
-    main(["tests/pdfs/a.pdf"])
+    main(["assets/dummy.pdf"])
 
 
 def test_main_bad_files():
@@ -25,7 +25,7 @@ def test_main_bad_args():
     with pytest.raises(
         AssertionError, match="Files must either be compressed in-place"
     ):
-        main(["--suffix", "", "tests/pdfs/a.pdf"])
+        main(["--suffix", "", "assets/dummy.pdf"])
 
 
 def test_main_report_quota(capsys):

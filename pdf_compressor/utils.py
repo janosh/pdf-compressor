@@ -27,7 +27,7 @@ def load_dotenv(filepath: str = f"{ROOT}/.env") -> None:
     """Parse environment variables in .env into os.environ.
 
     Args:
-        filepath (str, optional): Path to .env file. Defaults to f"{ROOT}/.env".
+        filepath (str, optional): Path to .env file. Defaults to './.env'.
     """
     try:
         with open(filepath) as dotenv:

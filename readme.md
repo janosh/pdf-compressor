@@ -8,6 +8,7 @@
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/janosh/pdf-compressor/main.svg)](https://results.pre-commit.ci/latest/github/janosh/pdf-compressor/main)
 [![PyPI](https://img.shields.io/pypi/v/pdf-compressor)](https://pypi.org/project/pdf-compressor)
 [![Requires Python 3.8+](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org/downloads)
+[![PyPI Downloads](https://img.shields.io/pypi/dm/pdf-compressor)](https://pypistats.org/packages/pdf-compressor)
 
 </h3>
 

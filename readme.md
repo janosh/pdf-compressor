@@ -41,9 +41,9 @@ pdf-compressor **/*.pdf
 `pdf-compressor` has the following flags:
 
 - `-i/--inplace` (optional, default: `False`): Whether to compress PDFs in place.
-- `-s/--suffix` (optional, default: `'-compressed'`): String to append to the filename of compressed PDFs. Mutually exclusive with `--inplace` flag.
-- `--cl/--compression-level` (optional, default: `'recommended'`): How hard to squeeze the file size. `'extreme'` noticeably degrades quality of embedded images.
-- `--set-api-key` (optional): Set the public key needed to authenticate with the iLovePDF API.
+- `-s/--suffix` (optional, default: `'-compressed'`): String to append to the filename of compressed PDFs. Mutually exclusive with `--inplace`.
+- `--cl/--compression-level` (optional, default: `'recommended'`): How hard to squeeze the file size. `'extreme'` noticeably degrades quality of embedded bitmap images.
+- `--set-api-key` (optional): Set the public key needed to authenticate with the iLovePDF API. You only need to do this once to start using.
 - `--report-quota` (optional): Report the number of remaining file operations in the current billing cycle for the stored iLovePDF public API key.
 - `--debug` (optional, default: `False`): When true, iLovePDF won't process the request but only reports the parameters that would have been sent to the server.
 - `-v/--version` (optional): Get your version number of `pdf-compressor`.

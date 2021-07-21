@@ -12,7 +12,8 @@ from pdf_compressor.utils import ROOT, load_dotenv, sizeof_fmt
 def main(argv: Sequence[str] = None) -> int:
 
     parser = ArgumentParser(
-        "PyDF Compress", description="Batch compress PDFs powered by iLovePDF.com"
+        "PDF Compressor",
+        description="Batch compress PDFs on the command line. Powered by iLovePDF.com.",
     )
 
     parser.add_argument(
@@ -60,7 +61,7 @@ def main(argv: Sequence[str] = None) -> int:
         "received by the server..",
     )
 
-    tb_version = version("pdf_compressor")
+    tb_version = version("pdf-compressor")
 
     parser.add_argument(
         "-v", "--version", action="version", version=f"%(prog)s v{tb_version}"
@@ -105,7 +106,7 @@ def main(argv: Sequence[str] = None) -> int:
         f"extension: {', '.join(not_pdfs)}"
     )
 
-    print(f"{len(pdfs)} PDFs to be compressed with iLovePDF:")
+    print(f"PDFs to be compressed with iLovePDF: {len(pdfs)}")
     for pdf in pdfs:
         print(f"- {relpath(pdf, expanduser('~'))}")
 
@@ -139,16 +140,17 @@ def main(argv: Sequence[str] = None) -> int:
             print(
                 f"{idx}/{len(pdfs)} Compressed PDF '{pdf_name}' is {sizeof_fmt(diff)} "
                 f"({percent_diff:.2g} %) smaller than the original "
-                f"({sizeof_fmt(compressed_size)} vs {sizeof_fmt(orig_size)}). Using "
-                "compressed file."
+                f"({sizeof_fmt(compressed_size)} vs {sizeof_fmt(orig_size)})."
             )
 
             if args.inplace:
-                if sys.platform == "darwin":  # move file to trash on macOS
-                    print("Old file moved to trash.\n")
+                # move original PDF file to trash on macOS (for later retrieval if necessary)
+                if sys.platform == "darwin":
+                    print("Using compressed file. Old file moved to trash.\n")
                     os.rename(pdf_path, f"{trash_path}/{pdf_name}")
-                else:  # simply delete it on other platforms
-                    print("Old file deleted.\n")
+                # simply delete PDF on other platforms
+                else:
+                    print("Using compressed file. Old file deleted.\n")
                     os.remove(pdf_path)
 
                 os.rename(compressed_pdf_path, pdf_path)

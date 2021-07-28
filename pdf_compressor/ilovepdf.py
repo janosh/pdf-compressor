@@ -104,7 +104,7 @@ class Task(ILovePDF):
 
         self.files: Dict[str, str] = {}
         self.download_path = ""
-        self.task = ""
+        self._task = ""
 
         # Any resource can be called with a debug option. When true, iLovePDF won't process
         # the request but will output the parameters received by the server.
@@ -119,7 +119,7 @@ class Task(ILovePDF):
         # {app} = current processing tool (e.g. compress)
         # https://developer.ilovepdf.com/docs/api-reference#output_filename
         self.payload: Dict[str, Union[str, bool]] = {
-            "task": self.task,
+            "task": self._task,
             "tool": tool,
             "ignore_errors": True,
             "ignore_password": True,
@@ -135,11 +135,18 @@ class Task(ILovePDF):
         handle ensuing requests.
         """
 
-        response = self._send_request("get", f"start/{self.tool}")
+        json = self._send_request("get", f"start/{self.tool}").json()
 
-        self.working_server = response.json()["server"]
+        if json:
+            self.working_server = json["server"]
 
-        self.task = self.payload["task"] = response.json()["task"]
+            self._task = self.payload["task"] = json["task"]
+
+        else:
+            print(
+                "Warning: Starting this task returned empty JSON response. "
+                "Was likely already started."
+            )
 
     def add_file(self, file_path: str) -> None:
 
@@ -147,7 +154,7 @@ class Task(ILovePDF):
             raise FileNotFoundError(f"'{file_path}' does not exist")
 
         if file_path in self.files:
-            raise ValueError(f"File '{file_path}' was already added.")
+            print(f"Warning: File '{file_path}' was already added to this task.")
 
         self.files[file_path] = ""
 
@@ -157,7 +164,7 @@ class Task(ILovePDF):
 
             with open(filename, "rb") as file:
                 response = self._send_request(
-                    "post", "upload", payload={"task": self.task}, files={"file": file}
+                    "post", "upload", payload={"task": self._task}, files={"file": file}
                 )
 
             self.files[filename] = response.json()["server_filename"]
@@ -198,15 +205,11 @@ class Task(ILovePDF):
 
             print(response)
 
-    def set_output_folder(self, path: str) -> None:
+    def set_outdir(self, path: str) -> None:
 
         os.makedirs(path, exist_ok=True)
 
         self.download_path = path
-
-    def clean_filename(self, filename: str) -> str:
-
-        return "_".join(filename.split("_")[1:])
 
     def download(self) -> Union[str, None]:
 
@@ -219,7 +222,7 @@ class Task(ILovePDF):
             )
             return None
 
-        endpoint = f"download/{self.task}"
+        endpoint = f"download/{self._task}"
 
         response = self._send_request("get", endpoint, stream=True)
 
@@ -230,6 +233,12 @@ class Task(ILovePDF):
         # so split('"')[-2] should get us "some_file_compress.pdf"
         filename = response.headers["content-disposition"].split('"')[-2]
 
+        if not filename:
+            raise ValueError(
+                f"{filename=} after parsing {response.headers['content-disposition']=}, "
+                "expected non-empty string"
+            )
+
         with open(f"{self.download_path}/{filename}", "wb") as f:
             for chunk in response.iter_content(10):
                 f.write(chunk)
@@ -238,7 +247,8 @@ class Task(ILovePDF):
 
     def delete_current_task(self) -> None:
 
-        self._send_request("post", f"task/{self.task}")
+        self._send_request("post", f"task/{self._task}")
+
 
     def get_task_information(self) -> requests.Response:
         """Get task status information.
@@ -249,19 +259,19 @@ class Task(ILovePDF):
         Returns:
             Response: request response object
         """
-        return self._send_request("get", f"task/{self.task}")
+        return self._send_request("get", f"task/{self._task}")
 
 
 class Compress(Task):
     """Use the iLovePDF compression tool.
 
     Example:
-        from pypdf_compress import Compress
+        from pdf_compressor import Compress
 
         task = Compress('public_key')
         task.add_file('pdf_file')
-        task.set_output_folder('output_directory')
-        task.execute()
+        task.set_outdir('output_dir')
+        task.process()
         task.download()
         task.delete_current_task()
     """

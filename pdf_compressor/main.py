@@ -120,7 +120,7 @@ def main(argv: Sequence[str] = None) -> int:
 
         dir_name, pdf_name = split(pdf_path)
 
-        task.set_output_folder(dir_name)
+        task.set_outdir(dir_name)
 
         task.process()
         compressed_pdf_name = task.download()
@@ -137,6 +137,7 @@ def main(argv: Sequence[str] = None) -> int:
         diff = orig_size - compressed_size
         if diff > 0:
             percent_diff = 100 * diff / orig_size
+
             print(
                 f"{idx}/{len(pdfs)} Compressed PDF '{pdf_name}' is {sizeof_fmt(diff)} "
                 f"({percent_diff:.2g} %) smaller than the original "
@@ -148,6 +149,7 @@ def main(argv: Sequence[str] = None) -> int:
                 if sys.platform == "darwin":
                     print("Using compressed file. Old file moved to trash.\n")
                     os.rename(pdf_path, f"{trash_path}/{pdf_name}")
+
                 # simply delete PDF on other platforms
                 else:
                     print("Using compressed file. Old file deleted.\n")
@@ -157,7 +159,15 @@ def main(argv: Sequence[str] = None) -> int:
 
             elif args.suffix:
                 path_name, ext = os.path.splitext(pdf_path)
-                pdf_path = f"{path_name}{args.suffix}{ext}"
+                new_path = f"{path_name}{args.suffix}{ext}"
+
+                if os.path.isfile(new_path):
+                    counter = 2
+                    while os.path.isfile(f"{path_name}{args.suffix}-{counter}{ext}"):
+                        counter += 1
+                    new_path = f"{path_name}{args.suffix}-{counter}{ext}"
+
+                pdf_path = new_path
 
                 os.rename(compressed_pdf_path, pdf_path)
 

@@ -1,15 +1,57 @@
 import os
+from shutil import copy2 as cp
 
 import pytest
 
-from pdf_compressor import main
+from pdf_compressor import DEFAULT_SUFFIX, main
 from pdf_compressor.utils import load_dotenv
+
+
+pdf_path = "assets/dummy.pdf"
+backup_path = "assets/dummy-backup.pdf"
+compressed_pdf_path = f"assets/dummy{DEFAULT_SUFFIX}.pdf"
 
 
 def test_main():
     """Test standard main() invocation."""
 
-    main(["assets/dummy.pdf"])
+    try:
+        main([pdf_path])
+
+    finally:  # ensures clean up code runs even if main() crashed
+        if os.path.isfile(compressed_pdf_path):
+            os.remove(compressed_pdf_path)
+
+
+def test_main_in_place():
+    """Test in-place main() invocation."""
+
+    cp(pdf_path, backup_path)
+
+    try:
+        main([pdf_path, "-i"])
+
+    finally:
+        if os.path.isfile(backup_path):
+            os.rename(backup_path, pdf_path)
+
+
+def test_main_multi_file():
+    """Test multi-file main() invocation."""
+
+    dummy_1 = "assets/dummy-1.pdf"
+    dummy_2 = "assets/dummy-2.pdf"
+
+    cp(pdf_path, dummy_1)
+    cp(pdf_path, dummy_2)
+
+    try:
+        main([dummy_1, dummy_2, "-i"])
+
+    finally:
+        for path in [dummy_1, dummy_2]:
+            if os.path.isfile(path):
+                os.remove(path)
 
 
 def test_main_bad_files():
@@ -25,7 +67,7 @@ def test_main_bad_args():
     with pytest.raises(
         AssertionError, match="Files must either be compressed in-place"
     ):
-        main(["--suffix", "", "assets/dummy.pdf"])
+        main(["--suffix", "", pdf_path])
 
 
 def test_main_report_quota(capsys):

@@ -99,7 +99,7 @@ class Task(ILovePDF):
 
         self.files: Dict[str, str] = {}
         self.download_path = ""
-        self._task = ""
+        self._task_id = ""
 
         # Any resource can be called with a debug option. When true, iLovePDF won't process
         # the request but will output the parameters received by the server.
@@ -113,14 +113,11 @@ class Task(ILovePDF):
         # {filename} = original filename
         # {app} = current processing tool (e.g. compress)
         # https://developer.ilovepdf.com/docs/api-reference#output_filename
-        self.payload: Dict[str, Union[str, bool]] = {
-            "task": self._task,
+        self.process_params: Dict[str, Union[str, bool]] = {
             "tool": tool,
-            "ignore_errors": True,
             "ignore_password": True,
-            "output_filename": "{filename}_{app}",
-            "packaged_filename": "{app}_PDFs",
-            "try_pdf_repair": True,
+            "output_filename": "{filename}-{app}",
+            "packaged_filename": "{app}-PDFs-{n}",
         }
 
         self.start()
@@ -135,7 +132,7 @@ class Task(ILovePDF):
         if json:
             self.working_server = json["server"]
 
-            self._task = self.payload["task"] = json["task"]
+            self._task_id = json["task"]
 
         else:
             print(
@@ -159,7 +156,10 @@ class Task(ILovePDF):
 
             with open(filename, "rb") as file:
                 response = self._send_request(
-                    "post", "upload", payload={"task": self._task}, files={"file": file}
+                    "post",
+                    "upload",
+                    payload={"task": self._task_id},
+                    files={"file": file},
                 )
 
             self.files[filename] = response.json()["server_filename"]
@@ -185,7 +185,10 @@ class Task(ILovePDF):
 
         self.upload()
 
-        payload = {**self.payload}
+        payload: Dict[str, Union[str, bool]] = {
+            **self.process_params,
+            "task": self._task_id,
+        }
 
         for idx, (filename, server_filename) in enumerate(self.files.items()):
 
@@ -217,7 +220,7 @@ class Task(ILovePDF):
             )
             return None
 
-        endpoint = f"download/{self._task}"
+        endpoint = f"download/{self._task_id}"
 
         response = self._send_request("get", endpoint, stream=True)
 
@@ -239,8 +242,7 @@ class Task(ILovePDF):
 
     def delete_current_task(self) -> None:
 
-        self._send_request("post", f"task/{self._task}")
-
+        self._send_request("post", f"task/{self._task_id}")
 
     def get_task_information(self) -> requests.Response:
         """Get task status information.
@@ -251,7 +253,7 @@ class Task(ILovePDF):
         Returns:
             Response: request response object
         """
-        return self._send_request("get", f"task/{self._task}")
+        return self._send_request("get", f"task/{self._task_id}")
 
 
 class Compress(Task):
@@ -284,4 +286,4 @@ class Compress(Task):
             valid_levels := ("low", "recommended", "extreme")
         ), f"Invalid {compression_level=}, must be one of {valid_levels}"
 
-        self.payload["compression_level"] = compression_level
+        self.process_params["compression_level"] = compression_level

@@ -9,6 +9,9 @@ from pdf_compressor.ilovepdf import Compress, ILovePDF
 from pdf_compressor.utils import ROOT, load_dotenv, sizeof_fmt
 
 
+DEFAULT_SUFFIX = "-compressed"
+
+
 def main(argv: Sequence[str] = None) -> int:
 
     parser = ArgumentParser(
@@ -49,7 +52,7 @@ def main(argv: Sequence[str] = None) -> int:
     parser.add_argument(
         "-s",
         "--suffix",
-        default="-compressed",
+        default=DEFAULT_SUFFIX,
         help="String to append to the filename of compressed PDFs. Mutually exclusive with "
         "--inplace flag.",
     )
@@ -112,9 +115,10 @@ def main(argv: Sequence[str] = None) -> int:
 
     trash_path = f"{expanduser('~')}/.Trash"
 
-    task = Compress(api_key, compression_level=args.compression_level, debug=args.debug)
-
     for idx, pdf_path in enumerate(pdfs, 1):
+        task = Compress(
+            api_key, compression_level=args.compression_level, debug=args.debug
+        )
 
         task.add_file(pdf_path)
 
@@ -146,14 +150,10 @@ def main(argv: Sequence[str] = None) -> int:
 
             if args.inplace:
                 # move original PDF file to trash on macOS (for later retrieval if necessary)
+                # simply let os.rename() overwrite existing PDF on other platforms
                 if sys.platform == "darwin":
                     print("Using compressed file. Old file moved to trash.\n")
                     os.rename(pdf_path, f"{trash_path}/{pdf_name}")
-
-                # simply delete PDF on other platforms
-                else:
-                    print("Using compressed file. Old file deleted.\n")
-                    os.remove(pdf_path)
 
                 os.rename(compressed_pdf_path, pdf_path)
 

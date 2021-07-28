@@ -82,9 +82,7 @@ class Task(ILovePDF):
     https://developer.ilovepdf.com/docs/api-reference#request-workflow
     """
 
-    def __init__(
-        self, public_key: str, tool: str, verbose: bool = False, debug: bool = False
-    ) -> None:
+    def __init__(self, public_key: str, tool: str, debug: bool = False) -> None:
         """
         Args:
             public_key (str): iLovePDF API key.
@@ -93,14 +91,11 @@ class Task(ILovePDF):
                 rotate, protect, pdfa, validatepdfa, htmlpdf, extract. pdf-compressor only
                 supports 'compress'.
                 https://developer.ilovepdf.com/docs/api-reference#process.
-            verbose (bool, optional): How much printing to do. Defaults to False.
             debug (bool, optional): Whether to perform real API requests (consumes quota) or
                 just report what would happen. Defaults to False.
         """
 
         super().__init__(public_key)
-
-        self.verbose = verbose
 
         self.files: Dict[str, str] = {}
         self.download_path = ""
@@ -225,9 +220,6 @@ class Task(ILovePDF):
         endpoint = f"download/{self._task}"
 
         response = self._send_request("get", endpoint, stream=True)
-
-        if self.verbose:
-            print("Downloading processed file(s)...")
 
         # content disposition is something like 'attachment; filename="some_file_compress.pdf"'
         # so split('"')[-2] should get us "some_file_compress.pdf"

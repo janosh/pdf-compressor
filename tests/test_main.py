@@ -13,12 +13,18 @@ compressed_pdf_path = f"assets/dummy{DEFAULT_SUFFIX}.pdf"
 
 
 def test_main():
-    """Test standard main() invocation."""
+    """Test standard main() invocation with changing cwd to PDF's folder."""
+
+    root_dir = os.getcwd()
 
     try:
-        main([pdf_path])
+        os.chdir("./assets")
+
+        main(["dummy.pdf"])
 
     finally:  # ensures clean up code runs even if main() crashed
+        os.chdir(root_dir)
+
         if os.path.isfile(compressed_pdf_path):
             os.remove(compressed_pdf_path)
 

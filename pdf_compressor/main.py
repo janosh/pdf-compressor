@@ -124,7 +124,9 @@ def main(argv: Sequence[str] = None) -> int:
 
         dir_name, pdf_name = split(pdf_path)
 
-        task.set_outdir(dir_name)
+        # dir_name will be '' for PDFs in current working directory
+        if dir_name:
+            task.set_outdir(dir_name)
 
         task.process()
         compressed_pdf_name = task.download()
@@ -132,8 +134,15 @@ def main(argv: Sequence[str] = None) -> int:
 
         if args.debug:
             continue
+        else:
+            # help mypy realize that compressed_pdf_name can't be None passed here
+            assert (
+                compressed_pdf_name
+            ), f"expected non-empty string for {compressed_pdf_name=}"
 
-        compressed_pdf_path = f"{dir_name}/{compressed_pdf_name}"
+        compressed_pdf_path = (
+            f"{dir_name}/{compressed_pdf_name}" if dir_name else compressed_pdf_name
+        )
 
         orig_size = getsize(pdf_path)
         compressed_size = getsize(compressed_pdf_path)

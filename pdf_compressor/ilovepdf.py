@@ -98,7 +98,7 @@ class Task(ILovePDF):
         super().__init__(public_key)
 
         self.files: Dict[str, str] = {}
-        self.download_path = ""
+        self.download_path = "./"
         self._task_id = ""
 
         # Any resource can be called with a debug option. When true, iLovePDF won't process
@@ -207,7 +207,7 @@ class Task(ILovePDF):
 
         os.makedirs(path, exist_ok=True)
 
-        self.download_path = path
+        self.download_path = f"{path}/"
 
     def download(self) -> Union[str, None]:
 
@@ -234,9 +234,8 @@ class Task(ILovePDF):
                 "expected non-empty string"
             )
 
-        with open(f"{self.download_path}/{filename}", "wb") as f:
-            for chunk in response.iter_content(10):
-                f.write(chunk)
+        with open(f"{self.download_path}{filename}", "wb") as pdf_file:
+            pdf_file.write(response.content)
 
         return filename
 

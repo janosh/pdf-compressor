@@ -58,7 +58,8 @@ class ILovePDF:
                 f"iLovePDF API only accepts 'post' and 'get' requests, got {type=}"
             )
 
-        # continue to use old server if task was already assigned one, else connect to new one
+        # continue to use old server if task was already assigned one, else connect to
+        # new server
         server = self.working_server or self.start_server
 
         url = f"https://{server}/{self.api_version}/{endpoint}"
@@ -69,8 +70,8 @@ class ILovePDF:
 
         if not response.ok:
             raise ValueError(
-                f"Error: {response.url} returned status code {response.status_code} with "
-                f"reason '{response.reason}'. Full response text is: {response.text}."
+                f"Error: {response.url} returned status code {response.status_code}, "
+                f"reason: '{response.reason}'. Full response text is: '{response.text}'"
             )
 
         return response
@@ -86,13 +87,13 @@ class Task(ILovePDF):
         """
         Args:
             public_key (str): iLovePDF API key.
-            tool (str): The desired API tool you wish to access. Possible values: merge, split,
-                compress, pdfjpg, imagepdf, unlock, pagenumber, watermark, officepdf, repair,
-                rotate, protect, pdfa, validatepdfa, htmlpdf, extract. pdf-compressor only
-                supports 'compress'.
+            tool (str): The desired API tool you wish to access. Possible values: merge,
+                split, compress, pdfjpg, imagepdf, unlock, pagenumber, watermark, pdfa,
+                officepdf, repair, rotate, protect, validatepdfa, htmlpdf, extract.
+                pdf-compressor only supports 'compress'. Might change in the future.
                 https://developer.ilovepdf.com/docs/api-reference#process.
-            debug (bool, optional): Whether to perform real API requests (consumes quota) or
-                just report what would happen. Defaults to False.
+            debug (bool, optional): Whether to perform real API requests (consumes
+                quota) or just report what would happen. Defaults to False.
         """
 
         super().__init__(public_key)
@@ -101,13 +102,14 @@ class Task(ILovePDF):
         self.download_path = "./"
         self._task_id = ""
 
-        # Any resource can be called with a debug option. When true, iLovePDF won't process
-        # the request but will output the parameters received by the server.
+        # Any resource can be called with a debug option. When true, iLovePDF won't
+        # process the request but will output the parameters received by the server.
         self.debug = debug  # https://developer.ilovepdf.com/docs/api-reference#testing
         self.tool = tool
 
         # API options below (https://developer.ilovepdf.com/docs/api-reference#process)
-        # available place holders in output/packaged_filename (will be inserted by iLovePDF):
+        # available placeholders in output/packaged_filename (will be inserted by
+        # iLovePDF):
         # {date} = current date
         # {n} = file number
         # {filename} = original filename
@@ -216,7 +218,7 @@ class Task(ILovePDF):
 
         if not len(self.files) > 0:
             print(
-                "Warning: you called task.download() but there are no files to be downloaded"
+                "Warning: task.download() was called but there are no files to download"
             )
             return None
 
@@ -224,14 +226,14 @@ class Task(ILovePDF):
 
         response = self._send_request("get", endpoint, stream=True)
 
-        # content disposition is something like 'attachment; filename="some_file_compress.pdf"'
+        # content_disposition='attachment; filename="some_file_compressed.pdf"'
         # so split('"')[-2] should get us "some_file_compress.pdf"
         filename = response.headers["content-disposition"].split('"')[-2]
 
         if not filename:
             raise ValueError(
-                f"{filename=} after parsing {response.headers['content-disposition']=}, "
-                "expected non-empty string"
+                f"{filename=} after parsing {response.headers['content-disposition']=},"
+                " expected non-empty string"
             )
 
         with open(f"{self.download_path}{filename}", "wb") as pdf_file:

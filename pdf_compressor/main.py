@@ -28,7 +28,8 @@ def main(argv: Sequence[str] = None) -> int:
     parser.add_argument(
         "--report-quota",
         action="store_true",
-        help="Report how much of the monthly quota for the current API key has been used up.",
+        help="Report how much of the monthly quota for the current API key has been "
+        "used up.",
     )
 
     parser.add_argument("filenames", nargs="*", help="List of PDF files to compress.")
@@ -38,8 +39,8 @@ def main(argv: Sequence[str] = None) -> int:
         "--cl",
         choices=("low", "recommended", "extreme"),
         default="recommended",
-        help="How hard to squeeze the file size. 'extreme' noticeably degrades image quality. "
-        "Defaults to 'recommended'.",
+        help="How hard to squeeze the file size. 'extreme' noticeably degrades image "
+        "quality. Defaults to 'recommended'.",
     )
 
     parser.add_argument(
@@ -53,15 +54,15 @@ def main(argv: Sequence[str] = None) -> int:
         "-s",
         "--suffix",
         default=DEFAULT_SUFFIX,
-        help="String to append to the filename of compressed PDFs. Mutually exclusive with "
-        "--inplace flag.",
+        help="String to append to the filename of compressed PDFs. Mutually exclusive "
+        "with --inplace flag.",
     )
 
     parser.add_argument(
         "--debug",
         action="store_true",
-        help="When true, iLovePDF won't process the request but will output the parameters "
-        "received by the server..",
+        help="When true, iLovePDF won't process the request but will output the "
+        "parameters received by the server..",
     )
 
     tb_version = version("pdf-compressor")
@@ -86,8 +87,8 @@ def main(argv: Sequence[str] = None) -> int:
 
     if not (api_key := os.environ["ILOVEPDF_PUBLIC_KEY"]):
         raise ValueError(
-            "pdf-compressor needs a iLovePDF public key to access its API. Set one with "
-            "pdf-compressor --set-api-key project_public_7af905e..."
+            "pdf-compressor needs an iLovePDF public key to access its API. Set one "
+            "with pdf-compressor --set-api-key project_public_7af905e..."
         )
 
     if args.report_quota:
@@ -97,8 +98,8 @@ def main(argv: Sequence[str] = None) -> int:
         return 0
 
     assert args.inplace or args.suffix, (
-        "Files must either be compressed in-place (--inplace) or you must specify a non-empty "
-        "suffix to append to the name of compressed files."
+        "Files must either be compressed in-place (--inplace) or you must specify a "
+        "non-empty suffix to append to the name of compressed files."
     )
 
     pdfs = [file for file in args.filenames if file.lower().endswith(".pdf")]
@@ -158,7 +159,7 @@ def main(argv: Sequence[str] = None) -> int:
             )
 
             if args.inplace:
-                # move original PDF file to trash on macOS (for later retrieval if necessary)
+                # move original PDF to trash on macOS (for later retrieval if necessary)
                 # simply let os.rename() overwrite existing PDF on other platforms
                 if sys.platform == "darwin":
                     print("Using compressed file. Old file moved to trash.\n")

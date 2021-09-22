@@ -113,9 +113,7 @@ def main(argv: Sequence[str] = None) -> int:
 
     print(f"PDFs to be compressed with iLovePDF: {len(pdfs)}")
 
-    task = Compress(
-        api_key, compression_level=args.compression_level, debug=args.debug
-    )
+    task = Compress(api_key, compression_level=args.compression_level, debug=args.debug)
 
     for pdf in pdfs:
         task.add_file(pdf)

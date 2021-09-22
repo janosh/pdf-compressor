@@ -1,5 +1,6 @@
 import os
 import sys
+import zipfile
 from argparse import ArgumentParser
 from importlib.metadata import version
 from os.path import expanduser, getsize, relpath, split
@@ -111,27 +112,33 @@ def main(argv: Sequence[str] = None) -> int:
     )
 
     print(f"PDFs to be compressed with iLovePDF: {len(pdfs)}")
+
+    task = Compress(
+        api_key, compression_level=args.compression_level, debug=args.debug
+    )
+
     for pdf in pdfs:
+        task.add_file(pdf)
         print(f"- {relpath(pdf, expanduser('~'))}")
+
+    task.process()
+
+    compressed_path = task.download()
+
+    if zipfile.is_zipfile(compressed_path):
+        zipfile.ZipFile(compressed_path).extractall()
+
+    task.delete_current_task()
 
     trash_path = f"{expanduser('~')}/.Trash"
 
     for idx, pdf_path in enumerate(pdfs, 1):
-        task = Compress(
-            api_key, compression_level=args.compression_level, debug=args.debug
-        )
-
-        task.add_file(pdf_path)
 
         dir_name, pdf_name = split(pdf_path)
 
         # dir_name will be '' for PDFs in current working directory
         if dir_name:
             task.set_outdir(dir_name)
-
-        task.process()
-        compressed_pdf_name = task.download()
-        task.delete_current_task()
 
         if args.debug:
             continue

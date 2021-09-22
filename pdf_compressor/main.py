@@ -127,6 +127,7 @@ def main(argv: Sequence[str] = None) -> int:
 
     if zipfile.is_zipfile(compressed_path):
         zipfile.ZipFile(compressed_path).extractall()
+        os.remove(compressed_path)
 
     task.delete_current_task()
 
@@ -135,6 +136,10 @@ def main(argv: Sequence[str] = None) -> int:
     for idx, pdf_path in enumerate(pdfs, 1):
 
         dir_name, pdf_name = split(pdf_path)
+
+        path_name, ext = os.path.splitext(pdf_name)
+
+        compressed_pdf_name = f"{path_name}-compress{ext}"
 
         # dir_name will be '' for PDFs in current working directory
         if dir_name:

@@ -47,3 +47,4 @@ pdf-compressor **/*.pdf
 | `--report-quota`           |                 | Report the number of remaining file operations in the current billing cycle for the stored iLovePDF API key.                                      |
 | `--debug`                  | `False`         | When true, iLovePDF won't process the request but only reports the parameters that would have been sent to the server.                            |
 | `-v/--version`             |                 | Get the version number of `pdf-compressor`.                                                                                                       |
+| `--verbose`                | `False`         | When true, progress will be reported while tasks are running.                                                                                     |

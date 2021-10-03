@@ -35,7 +35,10 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.0.1
     hooks:
-      - id: end-of-file-fixer
+      - id: check-case-conflict
+      - id: check-symlinks
       - id: check-yaml
-      - id: trailing-whitespace
+      - id: destroyed-symlinks
+      - id: end-of-file-fixer
       - id: mixed-line-ending
+      - id: trailing-whitespace

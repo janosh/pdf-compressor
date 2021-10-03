@@ -1,12 +1,11 @@
 import os
-import sys
 from argparse import ArgumentParser
 from importlib.metadata import version
-from os.path import expanduser, getsize, relpath, split
+from os.path import expanduser, relpath
 from typing import Sequence
 
 from pdf_compressor.ilovepdf import Compress, ILovePDF
-from pdf_compressor.utils import ROOT, load_dotenv, sizeof_fmt
+from pdf_compressor.utils import ROOT, del_or_keep_compressed, load_dotenv
 
 
 DEFAULT_SUFFIX = "-compressed"
@@ -18,6 +17,8 @@ def main(argv: Sequence[str] = None) -> int:
         "PDF Compressor",
         description="Batch compress PDFs on the command line. Powered by iLovePDF.com.",
     )
+
+    parser.add_argument("filenames", nargs="*", help="List of PDF files to compress.")
 
     parser.add_argument(
         "--set-api-key",
@@ -32,8 +33,6 @@ def main(argv: Sequence[str] = None) -> int:
         "used up.",
     )
 
-    parser.add_argument("filenames", nargs="*", help="List of PDF files to compress.")
-
     parser.add_argument(
         "--compression-level",
         "--cl",
@@ -41,6 +40,13 @@ def main(argv: Sequence[str] = None) -> int:
         default="recommended",
         help="How hard to squeeze the file size. 'extreme' noticeably degrades image "
         "quality. Defaults to 'recommended'.",
+    )
+
+    parser.add_argument(
+        "--handle-non-pdfs",
+        choices=("error", "warn", "ignore"),
+        default="error",
+        help="How to behave when receiving non-PDF input files. Defaults to 'error'.",
     )
 
     parser.add_argument(
@@ -62,7 +68,14 @@ def main(argv: Sequence[str] = None) -> int:
         "--debug",
         action="store_true",
         help="When true, iLovePDF won't process the request but will output the "
-        "parameters received by the server..",
+        "parameters received by the server. Defaults to False.",
+    )
+
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="When true, progress will be reported while tasks are running. Defaults "
+        "to False.",
     )
 
     tb_version = version("pdf-compressor")
@@ -105,88 +118,34 @@ def main(argv: Sequence[str] = None) -> int:
     pdfs = [file for file in args.filenames if file.lower().endswith(".pdf")]
     not_pdfs = [file for file in args.filenames if not file.lower().endswith(".pdf")]
 
-    assert len(not_pdfs) == 0, (
-        f"Input files must be PDFs, got {len(not_pdfs)} files without .pdf "
-        f"extension: {', '.join(not_pdfs)}"
-    )
+    if args.handle_non_pdfs == "error":
+        assert len(not_pdfs) == 0, (
+            f"Input files must be PDFs, got {len(not_pdfs)} files without '.pdf' "
+            f"extension: {', '.join(not_pdfs)}"
+        )
+    elif args.handle_non_pdfs == "warn":
+        print(
+            f"Warning: Got {len(not_pdfs)} input files without '.pdf' "
+            f"extension: {', '.join(not_pdfs)}"
+        )
 
     print(f"PDFs to be compressed with iLovePDF: {len(pdfs)}")
+
+    task = Compress(api_key, compression_level=args.compression_level, debug=args.debug)
+    task.verbose = args.verbose
+
     for pdf in pdfs:
+        task.add_file(pdf)
         print(f"- {relpath(pdf, expanduser('~'))}")
 
-    trash_path = f"{expanduser('~')}/.Trash"
+    task.process()
 
-    for idx, pdf_path in enumerate(pdfs, 1):
-        task = Compress(
-            api_key, compression_level=args.compression_level, debug=args.debug
-        )
+    downloaded_file = task.download()
 
-        task.add_file(pdf_path)
+    task.delete_current_task()
 
-        dir_name, pdf_name = split(pdf_path)
-
-        # dir_name will be '' for PDFs in current working directory
-        if dir_name:
-            task.set_outdir(dir_name)
-
-        task.process()
-        compressed_pdf_name = task.download()
-        task.delete_current_task()
-
-        if args.debug:
-            continue
-        else:
-            # help mypy realize that compressed_pdf_name can't be None passed here
-            assert (
-                compressed_pdf_name
-            ), f"expected non-empty string for {compressed_pdf_name=}"
-
-        compressed_pdf_path = (
-            f"{dir_name}/{compressed_pdf_name}" if dir_name else compressed_pdf_name
-        )
-
-        orig_size = getsize(pdf_path)
-        compressed_size = getsize(compressed_pdf_path)
-
-        diff = orig_size - compressed_size
-        if diff > 0:
-            percent_diff = 100 * diff / orig_size
-
-            print(
-                f"{idx}/{len(pdfs)} Compressed PDF '{pdf_name}' is {sizeof_fmt(diff)} "
-                f"({percent_diff:.2g} %) smaller than the original "
-                f"({sizeof_fmt(compressed_size)} vs {sizeof_fmt(orig_size)})."
-            )
-
-            if args.inplace:
-                # move original PDF to trash on macOS (for later retrieval if necessary)
-                # simply let os.rename() overwrite existing PDF on other platforms
-                if sys.platform == "darwin":
-                    print("Using compressed file. Old file moved to trash.\n")
-                    os.rename(pdf_path, f"{trash_path}/{pdf_name}")
-
-                os.rename(compressed_pdf_path, pdf_path)
-
-            elif args.suffix:
-                path_name, ext = os.path.splitext(pdf_path)
-                new_path = f"{path_name}{args.suffix}{ext}"
-
-                if os.path.isfile(new_path):
-                    counter = 2
-                    while os.path.isfile(f"{path_name}{args.suffix}-{counter}{ext}"):
-                        counter += 1
-                    new_path = f"{path_name}{args.suffix}-{counter}{ext}"
-
-                pdf_path = new_path
-
-                os.rename(compressed_pdf_path, pdf_path)
-
-        else:
-            print(
-                f"{idx}/{len(pdfs)} Compressed '{pdf_name}' no smaller than original "
-                "file. Keeping original."
-            )
-            os.remove(compressed_pdf_path)
+    if not args.debug:
+        del_or_keep_compressed(pdfs, downloaded_file, args.inplace, args.suffix)
 
     return 0
 

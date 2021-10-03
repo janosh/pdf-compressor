@@ -1,18 +1,23 @@
 import json
 import os
-from typing import Any, BinaryIO, Dict, Mapping, Union
+from typing import Any, BinaryIO, Dict, Literal, Optional
 
 import requests
+from requests import Response
+
+from pdf_compressor.utils import ProcessResponse
 
 
 class ILovePDF:
     """Communicates with the iLovePDF API."""
 
-    def __init__(self, public_key: str) -> None:
+    def __init__(self, public_key: str, debug: bool = False) -> None:
         """
         Args:
             public_key (str): iLovePDF API key. Get yours by signing up at
                 https://developer.ilovepdf.com/signup.
+            debug (bool, optional): Whether to perform real API requests (consumes
+                quota) or just report what would happen. Defaults to False.
         """
 
         self.public_key = public_key
@@ -20,9 +25,12 @@ class ILovePDF:
         self.api_version = "v1"
         self.start_server = "api.ilovepdf.com"
         self.working_server = ""
+        # Any resource can be called with a debug option. When true, iLovePDF won't
+        # process the request but will output the parameters received by the server.
+        self.debug = debug  # https://developer.ilovepdf.com/docs/api-reference#testing
 
         # header will contain authorization token to be sent with every task
-        self.headers: Union[Dict[str, str], None] = None
+        self.headers: Optional[Dict[str, str]] = None
 
         self.auth()
 
@@ -46,12 +54,12 @@ class ILovePDF:
 
     def _send_request(
         self,
-        type: str,
+        type: Literal["get", "post"],
         endpoint: str,
-        payload: Mapping[str, Union[str, bool]] = None,
+        payload: Dict[str, Any] = {},
         files: Dict[str, BinaryIO] = None,
         stream: bool = False,
-    ) -> requests.Response:
+    ) -> Response:
 
         if type not in ["get", "post"]:
             raise ValueError(
@@ -63,6 +71,9 @@ class ILovePDF:
         server = self.working_server or self.start_server
 
         url = f"https://{server}/{self.api_version}/{endpoint}"
+
+        if self.debug:
+            payload["debug"] = True
 
         response = getattr(requests, type)(
             url, data=payload, headers=self.headers, files=files, stream=stream
@@ -83,7 +94,9 @@ class Task(ILovePDF):
     https://developer.ilovepdf.com/docs/api-reference#request-workflow
     """
 
-    def __init__(self, public_key: str, tool: str, debug: bool = False) -> None:
+    def __init__(
+        self, public_key: str, tool: str, verbose: bool = False, **kwargs: Any
+    ) -> None:
         """
         Args:
             public_key (str): iLovePDF API key.
@@ -92,34 +105,29 @@ class Task(ILovePDF):
                 officepdf, repair, rotate, protect, validatepdfa, htmlpdf, extract.
                 pdf-compressor only supports 'compress'. Might change in the future.
                 https://developer.ilovepdf.com/docs/api-reference#process.
-            debug (bool, optional): Whether to perform real API requests (consumes
-                quota) or just report what would happen. Defaults to False.
         """
 
-        super().__init__(public_key)
+        super().__init__(public_key, **kwargs)
 
         self.files: Dict[str, str] = {}
         self.download_path = "./"
         self._task_id = ""
+        self._process_response: Optional[ProcessResponse] = None
 
-        # Any resource can be called with a debug option. When true, iLovePDF won't
-        # process the request but will output the parameters received by the server.
-        self.debug = debug  # https://developer.ilovepdf.com/docs/api-reference#testing
+        self.verbose = verbose
         self.tool = tool
 
-        # API options below (https://developer.ilovepdf.com/docs/api-reference#process)
-        # available placeholders in output/packaged_filename (will be inserted by
-        # iLovePDF):
-        # {date} = current date
-        # {n} = file number
-        # {filename} = original filename
-        # {app} = current processing tool (e.g. compress)
-        # https://developer.ilovepdf.com/docs/api-reference#output_filename
-        self.process_params: Dict[str, Union[str, bool]] = {
+        # API options https://developer.ilovepdf.com/docs/api-reference#process
+        # placeholders like {app}, {n}, {filename} in output/packaged_filename will be
+        # inserted by iLovePDF.
+        # See https://developer.ilovepdf.com/docs/api-reference#output_filename
+        self.process_params = {
             "tool": tool,
             "ignore_password": True,
-            "output_filename": "{filename}-{app}",
-            "packaged_filename": "{app}-PDFs-{n}",
+            # important to keep {n} in front as sort order is used to match existing
+            # to downloaded files
+            "output_filename": "{n}-{filename}-{app}",
+            "packaged_filename": "{app}ed-PDFs",
         }
 
         self.start()
@@ -152,19 +160,28 @@ class Task(ILovePDF):
 
         self.files[file_path] = ""
 
-    def upload(self) -> None:
+    def upload(self) -> Dict[str, str]:
+        """Second step of the task is where the PDFs files to be processed are uploaded
+        to iLovePDF servers.
+
+        Returns:
+            dict[str, str]: Map from local filenames to corresponding filenames on the
+                server.
+        """
+
+        payload = {"task": self._task_id}
 
         for filename in self.files:
 
             with open(filename, "rb") as file:
                 response = self._send_request(
-                    "post",
-                    "upload",
-                    payload={"task": self._task_id},
-                    files={"file": file},
-                )
+                    "post", "upload", payload=payload, files={"file": file}
+                ).json()
 
-            self.files[filename] = response.json()["server_filename"]
+            # server_filename is the only key in the JSON response
+            self.files[filename] = response["server_filename"]
+
+        return self.files
 
     def check_values(self, prop: str, prop_val_key: str) -> bool:
 
@@ -180,72 +197,89 @@ class Task(ILovePDF):
         else:
             return False
 
-    def process(self, verbose: bool = False) -> None:
+    def process(self) -> ProcessResponse:
+        """Uploads and then processes files added to this Task.
+        Files will be processed in the same order as iterating over
+        self.files.items().
 
-        if verbose:
-            print("Uploading file...")
+        Returns:
+            ProcessResponse: The post-processing JSON response.
+        """
+
+        if self.verbose:
+            print("Uploading file(s)...")
 
         self.upload()
 
-        payload: Dict[str, Union[str, bool]] = {
-            **self.process_params,
-            "task": self._task_id,
-        }
+        payload = self.process_params.copy()
+        payload["task"] = self._task_id
 
         for idx, (filename, server_filename) in enumerate(self.files.items()):
 
             payload[f"files[{idx}][filename]"] = filename
             payload[f"files[{idx}][server_filename]"] = server_filename
 
-        response = self._send_request("post", "process", payload=payload)
+        response = self._send_request("post", "process", payload=payload).json()
 
-        if verbose:
+        self._process_response = response
+        n_files = response["output_filenumber"]
 
-            print("File uploaded! Below file stats:")
+        assert len(self.files) == response["output_filenumber"], (
+            f"Unexpected file count mismatch: task received {len(self.files)} files "
+            f"for processing, but only {n_files} were downloaded from server."
+        )
 
-            print(response)
+        if self.verbose:
+            print(f"File(s) uploaded and processed!\n{response = }")
 
-    def set_outdir(self, path: str) -> None:
+        return response
 
-        os.makedirs(path, exist_ok=True)
+    def download(self, save_to_dir: str = None) -> str:
+        """Download this task's output file(s) for the given task. Should not be called
+        until after task.process(). In case of a single output file, it is saved to disk
+        as a PDF. Multiple files are saved in a compressed ZIP folder.
 
-        self.download_path = f"{path}/"
+        Raises:
+            ValueError: If task.download() is called in absence of downloadbale files,
+                usually because task.process() wasn't called yet.
 
-    def download(self) -> Union[str, None]:
-
-        if self.debug:
-            return None
-
-        if not len(self.files) > 0:
-            print(
-                "Warning: task.download() was called but there are no files to download"
+        Returns:
+            str: Path to the newly downloaded file.
+        """
+        if not self._process_response:
+            raise ValueError(
+                "You called task.download() but there are no files to download"
             )
-            return None
 
         endpoint = f"download/{self._task_id}"
 
         response = self._send_request("get", endpoint, stream=True)
 
-        # content_disposition='attachment; filename="some_file_compressed.pdf"'
-        # so split('"')[-2] should get us "some_file_compress.pdf"
-        filename = response.headers["content-disposition"].split('"')[-2]
+        if not save_to_dir:  # save_to_dir is None or ''
+            save_to_dir = os.getcwd()
+        else:
+            os.makedirs(save_to_dir, exist_ok=True)
 
-        if not filename:
-            raise ValueError(
-                f"{filename=} after parsing {response.headers['content-disposition']=},"
-                " expected non-empty string"
-            )
+        file_path = os.path.join(
+            save_to_dir, self._process_response["download_filename"]
+        )
 
-        with open(f"{self.download_path}{filename}", "wb") as pdf_file:
-            pdf_file.write(response.content)
+        with open(file_path, "wb") as file:
+            file.write(response.content)
 
-        return filename
+        return file_path
 
     def delete_current_task(self) -> None:
 
-        self._send_request("post", f"task/{self._task_id}")
+        if not self._task_id:
+            print("Warning: You're trying to delete a task that was never started")
+            return
 
-    def get_task_information(self) -> requests.Response:
+        self._send_request("post", f"task/{self._task_id}")
+        self._task_id = ""
+        self._process_response = None
+
+    def get_task_information(self) -> Response:
         """Get task status information.
 
         If the task is TaskSuccess, TaskSuccessWithWarnings or TaskError it
@@ -263,11 +297,10 @@ class Compress(Task):
     Example:
         from pdf_compressor import Compress
 
-        task = Compress('public_key')
-        task.add_file('pdf_file')
-        task.set_outdir('output_dir')
+        task = Compress("public_key")
+        task.add_file("pdf_file")
         task.process()
-        task.download()
+        task.download("output/dir")
         task.delete_current_task()
     """
 

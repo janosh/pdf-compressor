@@ -50,13 +50,16 @@ def load_dotenv(filepath: str = f"{ROOT}/.env") -> None:
     Args:
         filepath (str, optional): Path to .env file. Defaults to './.env'.
     """
-    try:
-        with open(filepath) as dotenv:
-            for line in dotenv:
-                key, val = line.replace("\n", "").split("=")
-                os.environ[key] = val
-    except FileNotFoundError:
-        pass
+    if not isfile(filepath) or getsize(filepath) == 0:
+        return
+
+    with open(filepath) as dotenv:
+        for line in dotenv:
+            if line.startswith("#"):
+                continue
+
+            key, val = line.replace("\n", "").split("=")
+            os.environ[key] = val
 
 
 def del_or_keep_compressed(

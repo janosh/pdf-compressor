@@ -1,14 +1,6 @@
 import os
 import sys
-from os.path import (
-    abspath,
-    dirname,
-    expanduser,
-    getsize,
-    isfile,
-    split,
-    splitext,
-)
+from os.path import abspath, dirname, expanduser, getsize, isfile, splitext
 from typing import List, TypedDict
 from zipfile import ZipFile
 
@@ -66,12 +58,13 @@ def del_or_keep_compressed(
     pdfs: List[str], downloaded_file: str, inplace: bool, suffix: str
 ) -> None:
     """Check whether compressed PDFs are smaller than original. If so, relocate each
-    compressed file to same directory as the original either with file suffix inserted
-    or overwriting the original if inplace=True.
+    compressed file to same directory as the original either with suffix appended to
+    file name or overwriting the original if inplace=True.
 
     Args:
         pdfs (list[str]): File paths to PDFs uploaded to iLovePDF.
-        downloaded_file (str): Path to file downloaded from iLovePDF servers.
+        downloaded_file (str): Path to file downloaded from iLovePDF servers. Will be
+            PDF or ZIP depending on if single or multiple files were uploaded.
         inplace (bool): Whether to overwrite original PDFs with compressed ones if
             smaller.
         suffix (str): String to insert after filename and before extension of compressed
@@ -87,19 +80,17 @@ def del_or_keep_compressed(
 
     trash_path = f"{expanduser('~')}/.Trash"
 
-    for idx, (orig_file_path, compr_file_path) in enumerate(
-        zip(pdfs, compressed_files), 1
-    ):
+    for idx, (orig_path, compr_path) in enumerate(zip(pdfs, compressed_files), 1):
 
-        orig_size = getsize(orig_file_path)
-        compressed_size = getsize(compr_file_path)
+        orig_size = getsize(orig_path)
+        compressed_size = getsize(compr_path)
 
         diff = orig_size - compressed_size
         if diff > 0:
             print(
-                f"{idx}/{len(pdfs)} Compressed PDF '{orig_file_path}' is "
-                f"{sizeof_fmt(diff)} ({diff:.1%}) smaller than the original "
-                f"({sizeof_fmt(compressed_size)} vs {sizeof_fmt(orig_size)})."
+                f"{idx}/{len(pdfs)} Compressed PDF '{orig_path}' is "
+                f"{sizeof_fmt(diff)} ({diff / orig_size:.1%}) smaller than original "
+                f"file ({sizeof_fmt(compressed_size)} vs {sizeof_fmt(orig_size)})."
             )
 
             if inplace:
@@ -107,15 +98,15 @@ def del_or_keep_compressed(
                 # simply let os.rename() overwrite existing PDF on other platforms
                 if sys.platform == "darwin":
                     print("Using compressed file. Old file moved to trash.\n")
-                    orig_file_name = split(orig_file_path)[1]
-                    os.rename(orig_file_path, f"{trash_path}/{orig_file_name}")
+                    orig_file_name = os.path.split(orig_path)[1]
+                    os.rename(orig_path, f"{trash_path}/{orig_file_name}")
                 else:
                     print("Using compressed file.\n")
 
-                os.rename(compr_file_path, orig_file_path)
+                os.rename(compr_path, orig_path)
 
             elif suffix:
-                base_name, ext = splitext(orig_file_path)
+                base_name, ext = splitext(orig_path)
                 new_path = f"{base_name}{suffix}{ext}"
 
                 if isfile(new_path):
@@ -124,14 +115,14 @@ def del_or_keep_compressed(
                         counter += 1
                     new_path = f"{base_name}{suffix}-{counter}{ext}"
 
-                os.rename(compr_file_path, new_path)
+                os.rename(compr_path, new_path)
 
         else:
             print(
-                f"{idx}/{len(pdfs)} Compressed '{orig_file_path}' no smaller than "
+                f"{idx}/{len(pdfs)} Compressed '{orig_path}' no smaller than "
                 "original file. Keeping original."
             )
-            os.remove(compr_file_path)
+            os.remove(compr_path)
 
     # check needed since if single PDF was processed, the file will have been moved
     if isfile(downloaded_file):

@@ -49,14 +49,16 @@ def main(argv: Sequence[str] = None) -> int:
         help="How to behave when receiving non-PDF input files. Defaults to 'error'.",
     )
 
-    parser.add_argument(
+    group = parser.add_mutually_exclusive_group()
+
+    group.add_argument(
         "-i",
         "--inplace",
         action="store_true",
         help="Whether to compress PDFs in place. Defaults to False.",
     )
 
-    parser.add_argument(
+    group.add_argument(
         "-s",
         "--suffix",
         default=DEFAULT_SUFFIX,

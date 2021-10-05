@@ -1,7 +1,9 @@
-from pdf_compressor.utils import sizeof_fmt, load_dotenv
-from os.path import dirname
-import os
+import zipfile
 
+from pdf_compressor.utils import sizeof_fmt, load_dotenv, del_or_keep_compressed
+from os.path import dirname, isfile
+from zipfile import ZipFile
+import os
 
 def file_test_creator(filename: str, content: str):
     f = open(filename, 'a')
@@ -53,3 +55,26 @@ def test_load_empty_env():
     file_remove(test_file)
 
     assert os.getenv('APP_EMPTY') is None
+
+
+def test_del_or_keep_compressed():
+    file = f"{dirname(__file__)}/dummy.pdf"
+    file2 = f"{dirname(__file__)}/dummy2.pdf"
+    archive = f"{dirname(__file__)}/dummy.zip"
+
+    f = open(file, 'a')
+    f.write('content')
+    f.close()
+
+    f = open(file2, 'a')
+    f.write('content')
+    f.close()
+
+    with zipfile.ZipFile(archive, mode='w') as z:
+        z.write(f"{dirname(__file__)}/dummy.pdf")
+        z.write(f"{dirname(__file__)}/dummy2.pdf")
+
+    del_or_keep_compressed([file, file2], archive, inplace=False, suffix='test')
+
+    assert isfile(archive) is False
+

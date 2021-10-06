@@ -1,18 +1,16 @@
+import os
 import zipfile
-
+from shutil import copy2 as cp
 from pdf_compressor.utils import sizeof_fmt, load_dotenv, del_or_keep_compressed
 from os.path import dirname, isfile
-from zipfile import ZipFile
-import os
+
+pdf_path = "assets/dummy.pdf"
+
 
 def file_test_creator(filename: str, content: str):
     f = open(filename, 'a')
     f.write(content)
     f.close()
-
-
-def file_remove(filename: str):
-    os.remove(filename)
 
 
 def test_sizeof_fmt():
@@ -28,7 +26,7 @@ def test_load_env():
 
     load_dotenv(filepath=test_file)
 
-    file_remove(test_file)
+    os.remove(test_file)
 
     assert os.getenv('APP_TEST') == 'test'
 
@@ -40,7 +38,7 @@ def test_load_commented_env():
 
     load_dotenv(filepath=test_file)
 
-    file_remove(test_file)
+    os.remove(test_file)
 
     assert os.getenv('COMMENT') is None
 
@@ -52,29 +50,52 @@ def test_load_empty_env():
 
     load_dotenv(filepath=test_file)
 
-    file_remove(test_file)
+    os.remove(test_file)
 
     assert os.getenv('APP_EMPTY') is None
 
 
-def test_del_or_keep_compressed():
-    file = f"{dirname(__file__)}/dummy.pdf"
-    file2 = f"{dirname(__file__)}/dummy2.pdf"
-    archive = f"{dirname(__file__)}/dummy.zip"
+def test_del_or_keep_compressed_without_diff_compression():
+    dummy_1 = "assets/dummy-1.pdf"
+    dummy_2 = "assets/dummy-2.pdf"
+    archive = "assets/compressed.zip"
 
-    f = open(file, 'a')
-    f.write('content')
-    f.close()
-
-    f = open(file2, 'a')
-    f.write('content')
-    f.close()
+    cp(pdf_path, dummy_1)
+    cp(pdf_path, dummy_2)
 
     with zipfile.ZipFile(archive, mode='w') as z:
-        z.write(f"{dirname(__file__)}/dummy.pdf")
-        z.write(f"{dirname(__file__)}/dummy2.pdf")
+        z.write(dummy_1)
+        z.write(dummy_2)
 
-    del_or_keep_compressed([file, file2], archive, inplace=False, suffix='test')
+    try:
+        del_or_keep_compressed([dummy_1, dummy_2], archive, inplace=False, suffix='test')
+    finally:
+        assert isfile(archive) is False
 
-    assert isfile(archive) is False
+
+def test_del_or_keep_compressed_with_diff_compression():
+    dummy_1 = "assets/dummy-1.pdf"
+    archive = "assets/compressed.zip"
+    keep_with_suffix = "assets/dummy-1_compressed.pdf"
+
+    empty_file = 'assets/empty_file.pdf'
+    open(empty_file, 'a')
+
+    cp(pdf_path, dummy_1)
+
+    with zipfile.ZipFile(archive, mode='w') as z:
+        z.write(empty_file)
+
+    try:
+        del_or_keep_compressed([dummy_1], archive, inplace=False, suffix='_compressed')
+
+        assert isfile(archive) is False
+        assert isfile(dummy_1) is True
+        assert isfile(empty_file) is True
+        assert isfile(keep_with_suffix) is True
+
+    finally:
+        os.remove(dummy_1)
+        os.remove(empty_file)
+        os.remove(keep_with_suffix)
 

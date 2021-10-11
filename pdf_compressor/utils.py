@@ -54,6 +54,31 @@ def load_dotenv(filepath: str = f"{ROOT}/.env") -> None:
             os.environ[key] = val
 
 
+def make_uniq_filename(orig_path: str, suffix: str = "") -> str:
+    """Append a suffix (if provided) and check if the resulting file path already
+    exists. If so, append counter and increment until the file path is unoccupied.
+
+    Args:
+        orig_path (str): Starting file path without suffix and counter.
+        suffix (str, optional): String to insert between file name and extension.
+            Defaults to "".
+
+    Returns:
+        str: New non-occupied file path.
+    """
+
+    base_name, ext = splitext(orig_path)
+    new_path = f"{base_name}{suffix}{ext}"
+
+    if isfile(new_path):
+        counter = 2
+        while isfile(f"{base_name}{suffix}-{counter}{ext}"):
+            counter += 1
+        new_path = f"{base_name}{suffix}-{counter}{ext}"
+
+    return new_path
+
+
 def del_or_keep_compressed(
     pdfs: List[str], downloaded_file: str, inplace: bool, suffix: str
 ) -> None:
@@ -99,21 +124,17 @@ def del_or_keep_compressed(
                 if sys.platform == "darwin":
                     print("Using compressed file. Old file moved to trash.\n")
                     orig_file_name = os.path.split(orig_path)[1]
-                    os.rename(orig_path, f"{trash_path}/{orig_file_name}")
+
+                    trash_file = make_uniq_filename(f"{trash_path}/{orig_file_name}")
+
+                    os.rename(orig_path, trash_file)
                 else:
                     print("Using compressed file.\n")
 
                 os.rename(compr_path, orig_path)
 
             elif suffix:
-                base_name, ext = splitext(orig_path)
-                new_path = f"{base_name}{suffix}{ext}"
-
-                if isfile(new_path):
-                    counter = 2
-                    while isfile(f"{base_name}{suffix}-{counter}{ext}"):
-                        counter += 1
-                    new_path = f"{base_name}{suffix}-{counter}{ext}"
+                new_path = make_uniq_filename(orig_path, suffix)
 
                 os.rename(compr_path, new_path)
 

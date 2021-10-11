@@ -37,6 +37,11 @@ def test_main_in_place():
     try:
         main([pdf_path, "-i"])
 
+        # repeat same operation to test if file can be moved to trash (pdf-compressor
+        # should append file counter since a file by that name already exists)
+        cp(backup_path, pdf_path)
+        main([pdf_path, "-i"])
+
     finally:
         if os.path.isfile(backup_path):
             os.rename(backup_path, pdf_path)

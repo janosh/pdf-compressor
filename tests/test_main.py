@@ -42,6 +42,10 @@ def test_main_in_place():
         cp(backup_path, pdf_path)
         main([pdf_path, "-i"])
 
+        # test dropping minimum size reduction
+        cp(backup_path, pdf_path)
+        main([pdf_path, "-i", "--min-size-reduction", "0"])
+
     finally:
         if os.path.isfile(backup_path):
             os.rename(backup_path, pdf_path)

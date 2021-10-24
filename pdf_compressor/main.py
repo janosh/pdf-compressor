@@ -16,6 +16,7 @@ def main(argv: Sequence[str] = None) -> int:
     parser = ArgumentParser(
         "PDF Compressor",
         description="Batch compress PDFs on the command line. Powered by iLovePDF.com.",
+        allow_abbrev=False,
     )
 
     parser.add_argument("filenames", nargs="*", help="List of PDF files to compress.")
@@ -40,6 +41,18 @@ def main(argv: Sequence[str] = None) -> int:
         default="recommended",
         help="How hard to squeeze the file size. 'extreme' noticeably degrades image "
         "quality. Defaults to 'recommended'.",
+    )
+
+    parser.add_argument(
+        "--min-size-reduction",
+        "--min-red",
+        type=int,
+        choices=range(0, 101),
+        metavar="[0-100]",  # prevents long list in argparse help message
+        help="How much compressed files need to be smaller than originals (in percent) "
+        "for them to be kept. Defaults to 10 when also passing -i/--inplace, else 0."
+        "For example, when compressing files in-place and only achieving 5%% file size "
+        "reduction, the compressed file will be discarded.",
     )
 
     parser.add_argument(
@@ -122,16 +135,16 @@ def main(argv: Sequence[str] = None) -> int:
 
     if args.handle_non_pdfs == "error":
         assert len(not_pdfs) == 0, (
-            f"Input files must be PDFs, got {len(not_pdfs)} files without '.pdf' "
+            f"Input files must be PDFs, got {len(not_pdfs):,} files without '.pdf' "
             f"extension: {', '.join(not_pdfs)}"
         )
     elif args.handle_non_pdfs == "warn":
         print(
-            f"Warning: Got {len(not_pdfs)} input files without '.pdf' "
+            f"Warning: Got {len(not_pdfs):,} input files without '.pdf' "
             f"extension: {', '.join(not_pdfs)}"
         )
 
-    print(f"PDFs to be compressed with iLovePDF: {len(pdfs)}")
+    print(f"PDFs to be compressed with iLovePDF: {len(pdfs):,}")
 
     task = Compress(api_key, compression_level=args.compression_level, debug=args.debug)
     task.verbose = args.verbose
@@ -146,11 +159,15 @@ def main(argv: Sequence[str] = None) -> int:
 
     task.delete_current_task()
 
+    min_size_red = args.min_size_reduction or (10 if args.inplace else 0)
+
     if not args.debug:
-        del_or_keep_compressed(pdfs, downloaded_file, args.inplace, args.suffix)
+        del_or_keep_compressed(
+            pdfs, downloaded_file, args.inplace, args.suffix, min_size_red
+        )
 
     return 0
 
 
 if __name__ == "__main__":
-    exit(main())
+    raise SystemExit(main())

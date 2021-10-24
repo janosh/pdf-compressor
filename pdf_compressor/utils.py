@@ -80,7 +80,11 @@ def make_uniq_filename(orig_path: str, suffix: str = "") -> str:
 
 
 def del_or_keep_compressed(
-    pdfs: List[str], downloaded_file: str, inplace: bool, suffix: str
+    pdfs: List[str],
+    downloaded_file: str,
+    inplace: bool,
+    suffix: str,
+    min_size_reduction: int,
 ) -> None:
     """Check whether compressed PDFs are smaller than original. If so, relocate each
     compressed file to same directory as the original either with suffix appended to
@@ -94,6 +98,8 @@ def del_or_keep_compressed(
             smaller.
         suffix (str): String to insert after filename and before extension of compressed
             PDFs. Used only if inplace=False.
+        min_size_reduction (int): How much compressed files need to be smaller than
+            originals (in percent) for them to be kept.
     """
 
     if len(pdfs) == 1:
@@ -111,25 +117,25 @@ def del_or_keep_compressed(
         compressed_size = getsize(compr_path)
 
         diff = orig_size - compressed_size
-        if diff > 0:
+        if diff / orig_size > min_size_reduction / 100:
             print(
-                f"{idx}/{len(pdfs)} Compressed PDF '{orig_path}' is "
-                f"{sizeof_fmt(diff)} ({diff / orig_size:.1%}) smaller than original "
-                f"file ({sizeof_fmt(compressed_size)} vs {sizeof_fmt(orig_size)})."
+                f"\n{idx}/{len(pdfs)} {orig_path} is {sizeof_fmt(diff)} "
+                f"({diff / orig_size:.1%}) smaller than original file "
+                f"({sizeof_fmt(compressed_size)} vs {sizeof_fmt(orig_size)})."
             )
 
             if inplace:
                 # move original PDF to trash on macOS (for later retrieval if necessary)
                 # simply let os.rename() overwrite existing PDF on other platforms
                 if sys.platform == "darwin":
-                    print("Using compressed file. Old file moved to trash.\n")
+                    print("Using compressed file. Old file moved to trash.")
                     orig_file_name = os.path.split(orig_path)[1]
 
                     trash_file = make_uniq_filename(f"{trash_path}/{orig_file_name}")
 
                     os.rename(orig_path, trash_file)
                 else:
-                    print("Using compressed file.\n")
+                    print("Using compressed file.")
 
                 os.rename(compr_path, orig_path)
 
@@ -139,12 +145,16 @@ def del_or_keep_compressed(
                 os.rename(compr_path, new_path)
 
         else:
+            not_enough_reduction = "no" if diff == 0 else f"only {diff / orig_size:.1%}"
             print(
-                f"{idx}/{len(pdfs)} Compressed '{orig_path}' no smaller than "
+                f"{idx}/{len(pdfs)} '{orig_path}' {not_enough_reduction} smaller than "
                 "original file. Keeping original."
             )
             os.remove(compr_path)
 
-    # check needed since if single PDF was processed, the file will have been moved
-    if isfile(downloaded_file):
-        os.remove(downloaded_file)
+    # remove ZIP archive and unused compressed PDFs
+    for filename in (*compressed_files, downloaded_file):
+        try:
+            os.remove(filename)
+        except OSError:
+            pass

@@ -1,12 +1,10 @@
 import os
 from argparse import ArgumentParser
 from importlib.metadata import version
-from os.path import expanduser, relpath
 from typing import Sequence
 
 from pdf_compressor.ilovepdf import Compress, ILovePDF
 from pdf_compressor.utils import ROOT, del_or_keep_compressed, load_dotenv
-
 
 DEFAULT_SUFFIX = "-compressed"
 
@@ -151,7 +149,6 @@ def main(argv: Sequence[str] = None) -> int:
 
     for pdf in pdfs:
         task.add_file(pdf)
-        print(f"- {relpath(pdf, expanduser('~'))}")
 
     task.process()
 

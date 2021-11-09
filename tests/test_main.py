@@ -6,7 +6,6 @@ import pytest
 from pdf_compressor import DEFAULT_SUFFIX, main
 from pdf_compressor.utils import load_dotenv
 
-
 pdf_path = "assets/dummy.pdf"
 backup_path = "assets/dummy-backup.pdf"
 compressed_pdf_path = f"assets/dummy{DEFAULT_SUFFIX}.pdf"

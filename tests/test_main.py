@@ -6,7 +6,6 @@ import pytest
 from pdf_compressor import DEFAULT_SUFFIX, main
 from pdf_compressor.utils import load_dotenv
 
-
 pdf_path = "assets/dummy.pdf"
 backup_path = "assets/dummy-backup.pdf"
 compressed_pdf_path = f"assets/dummy{DEFAULT_SUFFIX}.pdf"
@@ -36,6 +35,15 @@ def test_main_in_place():
 
     try:
         main([pdf_path, "-i"])
+
+        # repeat same operation to test if file can be moved to trash (pdf-compressor
+        # should append file counter since a file by that name already exists)
+        cp(backup_path, pdf_path)
+        main([pdf_path, "-i"])
+
+        # test dropping minimum size reduction
+        cp(backup_path, pdf_path)
+        main([pdf_path, "-i", "--min-size-reduction", "0"])
 
     finally:
         if os.path.isfile(backup_path):

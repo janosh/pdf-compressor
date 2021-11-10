@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['**.py', '**.yml'] # only run workflow when source files changed
+    paths: ['**/*.py', '**/*.yml'] # only run workflow when source or config files changed
   pull_request:
     branches: [main]
-    paths: ['**.py', '**.yml']
+    paths: ['**/*.py', '**/*.yml']
 
 jobs:
   tests:

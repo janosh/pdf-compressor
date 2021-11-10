@@ -3,12 +3,7 @@ import zipfile
 from os.path import dirname, isfile
 from shutil import copy2 as cp
 
-from pdf_compressor.utils import (
-    del_or_keep_compressed,
-    load_dotenv,
-    sizeof_fmt,
-)
-
+from pdf_compressor.utils import del_or_keep_compressed, load_dotenv, si_fmt
 
 pdf_path = "assets/dummy.pdf"
 
@@ -19,11 +14,15 @@ def file_test_creator(filename: str, content: str) -> None:
     f.close()
 
 
-def test_sizeof_fmt():
+def test_si_fmt():
 
-    assert sizeof_fmt(123456) == "120.6 KB"
+    assert si_fmt(123456) == "120.6K"
 
-    assert sizeof_fmt(123456789, 3) == sizeof_fmt(123456789, prec=3) == "117.738 MB"
+    assert si_fmt(12345678, fmt_spec=">6.2f", sep=" ") == " 11.77 M"
+
+    assert si_fmt(0.00123, fmt_spec=".3g", binary=False) == "1.23m"
+
+    assert si_fmt(0.00000123, fmt_spec="5.1f", sep=" ") == "  1.3 μ"
 
 
 def test_load_env():
@@ -76,7 +75,11 @@ def test_del_or_keep_compressed_without_diff_compression():
 
     try:
         del_or_keep_compressed(
-            [dummy_1, dummy_2], archive, inplace=False, suffix="test"
+            [dummy_1, dummy_2],
+            archive,
+            inplace=False,
+            suffix="test",
+            min_size_reduction=5,
         )
     finally:
         assert isfile(archive) is False
@@ -96,7 +99,13 @@ def test_del_or_keep_compressed_with_diff_compression():
         z.write(empty_file)
 
     try:
-        del_or_keep_compressed([dummy_1], archive, inplace=False, suffix="_compressed")
+        del_or_keep_compressed(
+            [dummy_1],
+            archive,
+            inplace=False,
+            suffix="_compressed",
+            min_size_reduction=5,
+        )
 
         assert isfile(archive) is False
         assert isfile(dummy_1) is True
@@ -107,3 +116,8 @@ def test_del_or_keep_compressed_with_diff_compression():
         os.remove(dummy_1)
         os.remove(empty_file)
         os.remove(keep_with_suffix)
+    assert si_fmt(12345678, fmt_spec=">6.2f", sep=" ") == " 11.77 M"
+
+    assert si_fmt(0.00123, fmt_spec=".3g", binary=False) == "1.23m"
+
+    assert si_fmt(0.00000123, fmt_spec="5.1f", sep=" ") == "  1.3 μ"

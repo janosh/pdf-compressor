@@ -1,9 +1,8 @@
 import os
 import sys
-from os.path import abspath, dirname, expanduser, getsize, isfile, splitext
-from typing import List, TypedDict
+from os.path import abspath, dirname, expanduser, getsize, isfile, relpath, splitext
+from typing import List, TypedDict, Union
 from zipfile import ZipFile
-
 
 ROOT = dirname(dirname(abspath(__file__)))
 
@@ -18,22 +17,46 @@ class ProcessResponse(TypedDict):
     status: str
 
 
-def sizeof_fmt(size: float, prec: int = 1) -> str:
-    """Convert file size to human readable format (https://stackoverflow.com/a/1094933).
+def si_fmt(
+    val: Union[int, float], binary: bool = True, fmt_spec: str = ".1f", sep: str = ""
+) -> str:
+    """Convert large numbers into human readable format using SI prefixes in
+    binary (1024) or metric (1000) mode.
+
+    https://nist.gov/pml/weights-and-measures/metric-si-prefixes
 
     Args:
-        size (int): File size in bytes.
-        prec (int): Floating point precision in returned string. Defaults to 1.
+        val (int | float): Some numerical value to format.
+        binary (bool, optional): If True, scaling factor is 2^10 = 1024 else 1000.
+            Defaults to False.
+        fmt_spec (str): f-string format specifier. Configure precision and left/right
+            padding in returned string. Defaults to ".1f". Can be used to ensure leading
+            or trailing whitespace for shorter numbers. Ex.1: ">10.2f" has 2 decimal
+            places and is at least 10 characters long with leading spaces if necessary.
+            Ex.2: "<20.3g" uses 3 significant digits (g: scientific notation on large
+            numbers) with at least 20 chars through trailing space.
+        sep (str): Separator between number and postfix. Defaults to "".
 
     Returns:
-        str: File size in human-readable format.
+        str: Formatted number.
     """
-    for unit in ["B", "KB", "MB", "GB", "TB", "PB"]:
-        if abs(size) < 1024:
-            break
-        size /= 1024
+    factor = 1024 if binary else 1000
 
-    return f"{size:3.{prec}f} {unit}"
+    if abs(val) >= 1:
+        # 1, Kilo, Mega, Giga, Tera, Peta, Exa, Zetta, Yotta
+        for scale in ("", "K", "M", "G", "T", "P", "E", "Z", "Y"):
+            if abs(val) < factor:
+                break
+            val /= factor
+    else:
+        mu_unicode = "\u03BC"
+        # milli, micro, nano, pico, femto, atto, zepto, yocto
+        for scale in ("", "m", mu_unicode, "n", "p", "f", "a", "z", "y"):
+            if abs(val) > 1:
+                break
+            val *= factor
+
+    return f"{val:{fmt_spec}}{sep}{scale}"
 
 
 def load_dotenv(filepath: str = f"{ROOT}/.env") -> None:
@@ -54,8 +77,37 @@ def load_dotenv(filepath: str = f"{ROOT}/.env") -> None:
             os.environ[key] = val
 
 
+def make_uniq_filename(orig_path: str, suffix: str = "") -> str:
+    """Append a suffix (if provided) and check if the resulting file path already
+    exists. If so, append counter and increment until the file path is unoccupied.
+
+    Args:
+        orig_path (str): Starting file path without suffix and counter.
+        suffix (str, optional): String to insert between file name and extension.
+            Defaults to "".
+
+    Returns:
+        str: New non-occupied file path.
+    """
+
+    base_name, ext = splitext(orig_path)
+    new_path = f"{base_name}{suffix}{ext}"
+
+    if isfile(new_path):
+        counter = 2
+        while isfile(f"{base_name}{suffix}-{counter}{ext}"):
+            counter += 1
+        new_path = f"{base_name}{suffix}-{counter}{ext}"
+
+    return new_path
+
+
 def del_or_keep_compressed(
-    pdfs: List[str], downloaded_file: str, inplace: bool, suffix: str
+    pdfs: List[str],
+    downloaded_file: str,
+    inplace: bool,
+    suffix: str,
+    min_size_reduction: int,
 ) -> None:
     """Check whether compressed PDFs are smaller than original. If so, relocate each
     compressed file to same directory as the original either with suffix appended to
@@ -69,9 +121,11 @@ def del_or_keep_compressed(
             smaller.
         suffix (str): String to insert after filename and before extension of compressed
             PDFs. Used only if inplace=False.
+        min_size_reduction (int): How much compressed files need to be smaller than
+            originals (in percent) for them to be kept.
     """
 
-    if len(pdfs) == 1:
+    if (n_files := len(pdfs)) == 1:
         compressed_files = [downloaded_file]
     else:
         archive = ZipFile(downloaded_file)
@@ -86,44 +140,47 @@ def del_or_keep_compressed(
         compressed_size = getsize(compr_path)
 
         diff = orig_size - compressed_size
-        if diff > 0:
+        counter = f"\n{idx}: " if n_files > 1 else ""
+
+        if diff / orig_size > min_size_reduction / 100:
+            pretty_path = relpath(orig_path, expanduser("~"))
             print(
-                f"{idx}/{len(pdfs)} Compressed PDF '{orig_path}' is "
-                f"{sizeof_fmt(diff)} ({diff / orig_size:.1%}) smaller than original "
-                f"file ({sizeof_fmt(compressed_size)} vs {sizeof_fmt(orig_size)})."
+                f"{counter}'{pretty_path}' is {si_fmt(diff)}B "
+                f"({diff / orig_size:.1%}) smaller than original file "
+                f"({si_fmt(compressed_size)}B vs {si_fmt(orig_size)}B)."
             )
 
             if inplace:
                 # move original PDF to trash on macOS (for later retrieval if necessary)
                 # simply let os.rename() overwrite existing PDF on other platforms
                 if sys.platform == "darwin":
-                    print("Using compressed file. Old file moved to trash.\n")
+                    print("Old file moved to trash.")
                     orig_file_name = os.path.split(orig_path)[1]
-                    os.rename(orig_path, f"{trash_path}/{orig_file_name}")
+
+                    trash_file = make_uniq_filename(f"{trash_path}/{orig_file_name}")
+
+                    os.rename(orig_path, trash_file)
                 else:
-                    print("Using compressed file.\n")
+                    print("Old file deleted.")
 
                 os.rename(compr_path, orig_path)
 
             elif suffix:
-                base_name, ext = splitext(orig_path)
-                new_path = f"{base_name}{suffix}{ext}"
-
-                if isfile(new_path):
-                    counter = 2
-                    while isfile(f"{base_name}{suffix}-{counter}{ext}"):
-                        counter += 1
-                    new_path = f"{base_name}{suffix}-{counter}{ext}"
+                new_path = make_uniq_filename(orig_path, suffix)
 
                 os.rename(compr_path, new_path)
 
         else:
+            not_enough_reduction = "no" if diff == 0 else f"only {diff / orig_size:.1%}"
             print(
-                f"{idx}/{len(pdfs)} Compressed '{orig_path}' no smaller than "
-                "original file. Keeping original."
+                f"{counter}'{orig_path}' {not_enough_reduction} smaller than original "
+                "file. Keeping original."
             )
             os.remove(compr_path)
 
-    # check needed since if single PDF was processed, the file will have been moved
-    if isfile(downloaded_file):
-        os.remove(downloaded_file)
+    # remove ZIP archive and unused compressed PDFs
+    for filename in (*compressed_files, downloaded_file):
+        try:
+            os.remove(filename)
+        except OSError:
+            pass

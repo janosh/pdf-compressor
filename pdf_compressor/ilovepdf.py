@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import json
 import os
-from typing import Any, BinaryIO, Dict, Literal, Optional
+from typing import Any, BinaryIO, Literal
 
 import requests
 from requests import Response
@@ -30,7 +32,7 @@ class ILovePDF:
         self.debug = debug  # https://developer.ilovepdf.com/docs/api-reference#testing
 
         # header will contain authorization token to be sent with every task
-        self.headers: Optional[Dict[str, str]] = None
+        self.headers: dict[str, str] | None = None
 
         self.auth()
 
@@ -56,8 +58,8 @@ class ILovePDF:
         self,
         type: Literal["get", "post"],
         endpoint: str,
-        payload: Dict[str, Any] = {},
-        files: Dict[str, BinaryIO] = None,
+        payload: dict[str, Any] = {},
+        files: dict[str, BinaryIO] = None,
         stream: bool = False,
     ) -> Response:
 
@@ -109,10 +111,10 @@ class Task(ILovePDF):
 
         super().__init__(public_key, **kwargs)
 
-        self.files: Dict[str, str] = {}
+        self.files: dict[str, str] = {}
         self.download_path = "./"
         self._task_id = ""
-        self._process_response: Optional[ProcessResponse] = None
+        self._process_response: ProcessResponse | None = None
 
         self.verbose = verbose
         self.tool = tool
@@ -160,7 +162,7 @@ class Task(ILovePDF):
 
         self.files[file_path] = ""
 
-    def upload(self) -> Dict[str, str]:
+    def upload(self) -> dict[str, str]:
         """Second step of the task is where the PDFs files to be processed are uploaded
         to iLovePDF servers.
 

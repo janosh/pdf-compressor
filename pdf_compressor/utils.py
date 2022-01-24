@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import os
 import sys
 from os.path import abspath, dirname, expanduser, getsize, isfile, relpath, splitext
-from typing import List, TypedDict, Union
+from typing import TypedDict
 from zipfile import ZipFile
 
 ROOT = dirname(dirname(abspath(__file__)))
@@ -12,13 +14,13 @@ class ProcessResponse(TypedDict):
     filesize: int
     output_filesize: int
     output_filenumber: int
-    output_extensions: List[str]
+    output_extensions: list[str]
     timer: str
     status: str
 
 
 def si_fmt(
-    val: Union[int, float], binary: bool = True, fmt_spec: str = ".1f", sep: str = ""
+    val: int | float, binary: bool = True, fmt_spec: str = ".1f", sep: str = ""
 ) -> str:
     """Convert large numbers into human readable format using SI prefixes in
     binary (1024) or metric (1000) mode.
@@ -103,7 +105,7 @@ def make_uniq_filename(orig_path: str, suffix: str = "") -> str:
 
 
 def del_or_keep_compressed(
-    pdfs: List[str],
+    pdfs: list[str],
     downloaded_file: str,
     inplace: bool,
     suffix: str,
@@ -145,9 +147,8 @@ def del_or_keep_compressed(
         if diff / orig_size > min_size_reduction / 100:
             pretty_path = relpath(orig_path, expanduser("~"))
             print(
-                f"{counter}'{pretty_path}' is {si_fmt(diff)}B "
-                f"({diff / orig_size:.1%}) smaller than original file "
-                f"({si_fmt(compressed_size)}B vs {si_fmt(orig_size)}B)."
+                f"{counter}'{pretty_path}' is now {si_fmt(compressed_size)}B, before "
+                f"{si_fmt(orig_size)}B ({si_fmt(diff)}B = {diff/orig_size:.1%} smaller)"
             )
 
             if inplace:

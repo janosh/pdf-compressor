@@ -1,3 +1,8 @@
+"""
+Code in this file was adapted from Andrea Bruschi's pylovepdf.
+https://github.com/AndyCyberSec/pylovepdf
+"""
+
 from __future__ import annotations
 
 import json

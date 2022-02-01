@@ -14,7 +14,7 @@
 
 Command line PDF compression powered by the free [iLovePDF API](https://developer.ilovepdf.com).
 
-**Why?** iLovePDF delivers the best PDF compression I've seen but using their web UI doesn't support automation and can be cumbersome when dealing with many files.
+**Why?** iLovePDF delivers the best PDF compression I've seen but their web UI doesn't support automation and can be cumbersome when dealing with many files.
 
 ## Installation
 

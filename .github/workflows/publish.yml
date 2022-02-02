@@ -20,6 +20,9 @@ jobs:
       - name: Run tests
         # Only publish to PyPI if tests pass.
         run: pytest
+        env:
+          ILOVEPDF_PUBLIC_KEY: ${{ secrets.ILOVEPDF_PUBLIC_KEY }}
+
 
       - name: Build and upload dist
         run: |

@@ -81,6 +81,7 @@ def test_main_bad_args():
     with pytest.raises(
         AssertionError, match="Files must either be compressed in-place"
     ):
+        # empty suffix and no in-place flag are invalid
         main(["--suffix", "", pdf_path])
 
 
@@ -102,6 +103,9 @@ def test_main_set_api_key():
 
     api_key = os.environ["ILOVEPDF_PUBLIC_KEY"]  # save API key to reset it later
 
+    with pytest.raises(AssertionError, match="invalid API key"):
+        main(["--set-api-key", "foo"])
+
     main(["--set-api-key", "project_public_foobar"])
 
     load_dotenv()
@@ -109,3 +113,29 @@ def test_main_set_api_key():
     assert os.environ["ILOVEPDF_PUBLIC_KEY"] == "project_public_foobar"
 
     main(["--set-api-key", api_key])  # restore previous value
+
+
+@pytest.mark.parametrize("arg", ["-v", "--version"])
+def test_main_report_version(capsys, arg):
+    """Test CLI version flag."""
+
+    with pytest.raises(SystemExit):
+        ret_code = main([arg])
+        assert ret_code == 0
+
+    stdout, stderr = capsys.readouterr()
+
+    assert stdout.startswith("PDF Compressor v")
+    assert stderr == ""
+
+
+def test_error_on_no_input_files():
+    """Test error when no PDF input files are provided."""
+
+    with pytest.raises(ValueError, match="No input files provided"):
+        ret_code = main(["--error-on-no-pdfs"])
+        assert ret_code == 1
+
+    # check no error by default
+    ret_code = main([])
+    assert ret_code == 0

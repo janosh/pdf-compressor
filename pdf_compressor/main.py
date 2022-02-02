@@ -91,6 +91,13 @@ def main(argv: Sequence[str] = None) -> int:
         "to False.",
     )
 
+    parser.add_argument(
+        "--error-on-no-pdfs",
+        action="store_true",
+        help="When true, exit with ValueError if no input PDFs received. "
+        "Defaults to False.",
+    )
+
     tb_version = version("pdf-compressor")
 
     parser.add_argument(
@@ -119,7 +126,9 @@ def main(argv: Sequence[str] = None) -> int:
 
     if args.report_quota:
 
-        ILovePDF(api_key).report_quota()
+        remaining_files = ILovePDF(api_key).get_quota()
+
+        print(f"Remaining files in this billing cycle: {remaining_files:,}")
 
         return 0
 
@@ -142,7 +151,17 @@ def main(argv: Sequence[str] = None) -> int:
             f"extension: {', '.join(not_pdfs)}"
         )
 
-    print(f"PDFs to be compressed with iLovePDF: {len(pdfs):,}")
+    if args.verbose:
+        if len(pdfs) > 0:
+            print(f"PDFs to be compressed with iLovePDF: {len(pdfs):,}")
+        else:
+            print("Nothing to do: received no input PDF files.")
+
+    if len(pdfs) == 0:
+        if args.error_on_no_pdfs:
+            raise ValueError("No input files provided")
+        else:
+            return 0
 
     task = Compress(api_key, compression_level=args.compression_level, debug=args.debug)
     task.verbose = args.verbose

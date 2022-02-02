@@ -50,14 +50,13 @@ class ILovePDF:
 
         self.headers = {"Authorization": f"Bearer {response.json()['token']}"}
 
-    def report_quota(self) -> int:
-        response = self._send_request("get", "info")
+    def get_quota(self) -> int:
+        """Get the number of remaining files that can be processed by the API in the
+        current billing cycle. response has only one key: {'remaining_files': int}.
+        """
+        response = json.loads(self._send_request("get", "info").text)
 
-        remaining_files = json.loads(response.text)["remaining_files"]
-
-        print(f"Remaining files in this billing cycle: {remaining_files:,}")
-
-        return remaining_files
+        return response["remaining_files"]
 
     def _send_request(
         self,

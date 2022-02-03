@@ -25,6 +25,23 @@ def main(argv: Sequence[str] = None) -> int:
         "immediately afterwards ignoring all other flags.",
     )
 
+    group = parser.add_mutually_exclusive_group()
+
+    group.add_argument(
+        "-i",
+        "--inplace",
+        action="store_true",
+        help="Whether to compress PDFs in place. Defaults to False.",
+    )
+
+    group.add_argument(
+        "-s",
+        "--suffix",
+        default=DEFAULT_SUFFIX,
+        help="String to append to the filename of compressed PDFs. Mutually exclusive "
+        "with --inplace flag.",
+    )
+
     parser.add_argument(
         "--report-quota",
         action="store_true",
@@ -54,30 +71,6 @@ def main(argv: Sequence[str] = None) -> int:
     )
 
     parser.add_argument(
-        "--handle-non-pdfs",
-        choices=("error", "warn", "ignore"),
-        default="error",
-        help="How to behave when receiving non-PDF input files. Defaults to 'error'.",
-    )
-
-    group = parser.add_mutually_exclusive_group()
-
-    group.add_argument(
-        "-i",
-        "--inplace",
-        action="store_true",
-        help="Whether to compress PDFs in place. Defaults to False.",
-    )
-
-    group.add_argument(
-        "-s",
-        "--suffix",
-        default=DEFAULT_SUFFIX,
-        help="String to append to the filename of compressed PDFs. Mutually exclusive "
-        "with --inplace flag.",
-    )
-
-    parser.add_argument(
         "--debug",
         action="store_true",
         help="When true, iLovePDF won't process the request but will output the "
@@ -92,10 +85,21 @@ def main(argv: Sequence[str] = None) -> int:
     )
 
     parser.add_argument(
-        "--error-on-no-pdfs",
-        action="store_true",
-        help="When true, exit with ValueError if no input PDFs received. "
-        "Defaults to False.",
+        "--on-no-pdfs",
+        choices=("error", "ignore"),
+        default="ignore",
+        help="What to do when no input PDFs received. One of 'ignore' or 'error', "
+        "former exits 0, latter throws ValueError. Can be useful when using "
+        "pdf-compressor in shell scripts. Defaults to 'ignore'.",
+    )
+
+    parser.add_argument(
+        "--on-bad-files",
+        choices=("error", "warn", "ignore"),
+        default="error",
+        help="How to behave when receiving input files that don't appear to be PDFs. "
+        "One of 'error', 'warn', 'ignore'. Error will be TypeError. "
+        "Defaults to 'error'.",
     )
 
     tb_version = version("pdf-compressor")
@@ -140,12 +144,12 @@ def main(argv: Sequence[str] = None) -> int:
     pdfs = [file for file in args.filenames if file.lower().endswith(".pdf")]
     not_pdfs = [file for file in args.filenames if not file.lower().endswith(".pdf")]
 
-    if args.handle_non_pdfs == "error":
-        assert len(not_pdfs) == 0, (
+    if args.on_bad_files == "error" and len(not_pdfs) > 0:
+        raise TypeError(
             f"Input files must be PDFs, got {len(not_pdfs):,} files without '.pdf' "
             f"extension: {', '.join(not_pdfs)}"
         )
-    elif args.handle_non_pdfs == "warn":
+    elif args.on_bad_files == "warn" and len(not_pdfs) > 0:
         print(
             f"Warning: Got {len(not_pdfs):,} input files without '.pdf' "
             f"extension: {', '.join(not_pdfs)}"
@@ -158,7 +162,7 @@ def main(argv: Sequence[str] = None) -> int:
             print("Nothing to do: received no input PDF files.")
 
     if len(pdfs) == 0:
-        if args.error_on_no_pdfs:
+        if args.on_no_pdfs == "error":
             raise ValueError("No input files provided")
         else:
             return 0

@@ -270,6 +270,7 @@ class Task(ILovePDF):
             save_to_dir, self._process_response["download_filename"]
         )
 
+        # response.content is PDF file or ZIP archive, either way, we save as binary
         with open(file_path, "wb") as file:
             file.write(response.content)
 

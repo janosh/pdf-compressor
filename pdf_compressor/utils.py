@@ -61,7 +61,7 @@ def si_fmt(
     return f"{val:{fmt_spec}}{sep}{scale}"
 
 
-def load_dotenv(filepath: str = f"{ROOT}/.env") -> None:
+def load_dotenv(filepath: str = os.path.join(f"{ROOT}", ".env")) -> None:
     """Parse environment variables in .env into os.environ.
 
     Args:
@@ -134,7 +134,7 @@ def del_or_keep_compressed(
         compressed_files = sorted(archive.namelist())
         archive.extractall()
 
-    trash_path = f"{expanduser('~')}/.Trash"
+    trash_path = f"{expanduser('~')}/.Trash"  # macOS only, no need for os.path.join()
 
     for idx, (orig_path, compr_path) in enumerate(zip(pdfs, compressed_files), 1):
 

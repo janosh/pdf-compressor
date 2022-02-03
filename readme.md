@@ -38,13 +38,15 @@ pdf-compressor **/*.pdf
 
 ## Options
 
-| Flags                      | Default         | Description                                                                                                                                         |
-| -------------------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `-i/--inplace`             | `False`         | Whether to compress PDFs in place.                                                                                                                  |
-| `-s/--suffix`              | `'-compressed'` | String to append to the filename of compressed PDFs. Mutually exclusive with `--inplace`.                                                           |
-| `--cl/--compression-level` | `'recommended'` | How hard to squeeze the file size. One of `'low'`, `'recommended'`, `'extreme'`. `'extreme'` noticeably degrades quality of embedded bitmap images. |
-| `--set-api-key`            |                 | Set the public key needed to authenticate with the iLovePDF API. You only need to do this once to start using.                                      |
-| `--report-quota`           |                 | Report the number of remaining file operations in the current billing cycle for the stored iLovePDF API key.                                        |
-| `--debug`                  | `False`         | When true, iLovePDF won't process the request but only reports the parameters that would have been sent to the server.                              |
-| `--verbose`                | `False`         | When true, progress will be reported while tasks are running.                                                                                       |
-| `-v/--version`             |                 | Get the version number of `pdf-compressor`.                                                                                                         |
+| Flags                      | Default         | Description                                                                                                                                                                     |
+| -------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `-i/--inplace`             | `False`         | Whether to compress PDFs in place.                                                                                                                                              |
+| `-s/--suffix`              | `'-compressed'` | String to append to the filename of compressed PDFs. Mutually exclusive with `--inplace`.                                                                                       |
+| `--cl/--compression-level` | `'recommended'` | How hard to squeeze the file size. One of `'low'`, `'recommended'`, `'extreme'`. `'extreme'` noticeably degrades quality of embedded bitmap images.                             |
+| `--set-api-key`            |                 | Set the public key needed to authenticate with the iLovePDF API. You only need to do this once to start using.                                                                  |
+| `--report-quota`           |                 | Report the number of remaining file operations in the current billing cycle for the stored iLovePDF API key.                                                                    |
+| `--debug`                  | `False`         | When true, iLovePDF won't process the request but only reports the parameters that would have been sent to the server.                                                          |
+| `--verbose`                | `False`         | When true, progress will be reported while tasks are running.                                                                                                                   |
+| `-v/--version`             |                 | Get the version number of `pdf-compressor`.                                                                                                                                     |
+| `--on-no-pdfs`             | `'ignore'`      | What to do when no input PDFs received. One of `'ignore'` or `'error'`, former exits 0, latter throws `ValueError`. Can be useful when using `pdf-compressor` in shell scripts. |
+| `--on-bad-files`           | `'error'`       | How to behave when receiving input files that don't appear to be PDFs. One of `'error'`, `'warn'`, `'ignore'`.                                                                  |

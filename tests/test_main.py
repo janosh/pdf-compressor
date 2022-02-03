@@ -69,23 +69,6 @@ def test_main_multi_file():
                 os.remove(path)
 
 
-def test_main_bad_files():
-    """Test main() with bad file extensions."""
-
-    with pytest.raises(AssertionError, match="Input files must be PDFs, got 2 "):
-        main(["foo.svg", "bar.pdf", "baz.png"])
-
-
-def test_main_bad_args():
-    """Test main() with bad CLI flags."""
-
-    with pytest.raises(
-        AssertionError, match="Files must either be compressed in-place"
-    ):
-        # empty suffix and no in-place flag are invalid
-        main(["--suffix", "", pdf_path])
-
-
 def test_main_report_quota(capsys):
     """Test CLI quota reporting."""
 
@@ -130,13 +113,49 @@ def test_main_report_version(capsys, arg):
     assert stderr == ""
 
 
-def test_error_on_no_input_files():
+def test_main_bad_args():
+    """Test bad CLI flags."""
+
+    with pytest.raises(
+        AssertionError, match="Files must either be compressed in-place"
+    ):
+        # empty suffix and no in-place flag are invalid
+        main(["--suffix", "", pdf_path])
+
+
+def test_main_error_on_no_input_files():
     """Test error when no PDF input files are provided."""
 
     with pytest.raises(ValueError, match="No input files provided"):
-        ret_code = main(["--error-on-no-pdfs"])
+        ret_code = main(["--on-no-pdfs", "error"])
         assert ret_code == 1
 
     # check no error by default
     ret_code = main([])
     assert ret_code == 0
+
+
+def test_main_bad_files(capsys):
+    """Test bad file extensions."""
+
+    files = ["foo.svg", "bar.pdf", "baz.png"]
+
+    try:
+        main(files + ["--on-bad-files", "ignore"])
+    except FileNotFoundError:  # 'bar.pdf' does not exist
+        pass
+
+    stdout, stderr = capsys.readouterr()
+    assert stdout == "" and stderr == ""
+
+    try:
+        main(files + ["--on-bad-files", "warn"])
+    except FileNotFoundError:  # 'bar.pdf' does not exist
+        pass
+
+    stdout, stderr = capsys.readouterr()
+    assert stdout.startswith("Warning: Got 2 input files without '.pdf' extension:")
+    assert stderr == ""
+
+    with pytest.raises(TypeError, match="Input files must be PDFs, got 2 "):
+        main(files)

@@ -19,7 +19,7 @@ def test_main():
     try:
         os.chdir("./assets")
 
-        # include sep to test https://github.com/janosh/pdf-compressor/issues/9
+        # include path sep to test https://github.com/janosh/pdf-compressor/issues/9
         main([f".{os.path.sep}dummy.pdf"])
 
     finally:  # ensures clean up code runs even if main() crashed

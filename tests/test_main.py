@@ -48,7 +48,7 @@ def test_main_in_place():
 
     finally:
         if os.path.isfile(backup_path):
-            os.rename(backup_path, pdf_path)
+            os.replace(backup_path, pdf_path)
 
 
 def test_main_multi_file():

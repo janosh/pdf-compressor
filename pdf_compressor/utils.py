@@ -164,7 +164,9 @@ def del_or_keep_compressed(
                 else:
                     print("Old file deleted.")
 
-                os.rename(compr_path, orig_path)
+                # better then os.rename() on Windows which errors if destination file
+                # path already exists
+                os.replace(compr_path, orig_path)
 
             elif suffix:
                 new_path = make_uniq_filename(orig_path, suffix)

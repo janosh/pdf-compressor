@@ -19,7 +19,7 @@ def test_main():
     try:
         os.chdir("./assets")
 
-        # include sep to test https://github.com/janosh/pdf-compressor/issues/9
+        # include path sep to test https://github.com/janosh/pdf-compressor/issues/9
         main([f".{os.path.sep}dummy.pdf"])
 
     finally:  # ensures clean up code runs even if main() crashed
@@ -48,7 +48,7 @@ def test_main_in_place():
 
     finally:
         if os.path.isfile(backup_path):
-            os.rename(backup_path, pdf_path)
+            os.replace(backup_path, pdf_path)
 
 
 def test_main_multi_file():

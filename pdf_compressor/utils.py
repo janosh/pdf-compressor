@@ -145,7 +145,7 @@ def del_or_keep_compressed(
         counter = f"\n{idx}: " if n_files > 1 else ""
 
         if diff / orig_size > min_size_reduction / 100:
-            pretty_path = relpath(orig_path, expanduser("~"))
+            pretty_path = relpath(orig_path)
             print(
                 f"{counter}'{pretty_path}' is now {si_fmt(compressed_size)}B, before "
                 f"{si_fmt(orig_size)}B ({si_fmt(diff)}B = {diff/orig_size:.1%} smaller)"
@@ -164,7 +164,9 @@ def del_or_keep_compressed(
                 else:
                     print("Old file deleted.")
 
-                os.rename(compr_path, orig_path)
+                # better then os.rename() on Windows which errors if destination file
+                # path already exists
+                os.replace(compr_path, orig_path)
 
             elif suffix:
                 new_path = make_uniq_filename(orig_path, suffix)

@@ -141,8 +141,9 @@ def main(argv: Sequence[str] = None) -> int:
         "non-empty suffix to append to the name of compressed files."
     )
 
-    pdfs = [file for file in args.filenames if file.lower().endswith(".pdf")]
-    not_pdfs = [file for file in args.filenames if not file.lower().endswith(".pdf")]
+    files = [f.replace("\\", "/") for f in args.filenames]
+    pdfs = [f for f in files if f.lower().endswith(".pdf")]
+    not_pdfs = [f for f in files if not f.lower().endswith(".pdf")]
 
     if args.on_bad_files == "error" and len(not_pdfs) > 0:
         raise TypeError(

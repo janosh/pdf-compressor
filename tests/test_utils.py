@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 from pdf_compressor.utils import si_fmt
 
 
-def test_greek_fmt():
+def test_greek_fmt() -> None:
 
     assert si_fmt(123456) == "120.6K"
 

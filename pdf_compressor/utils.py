@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import sys
 from os.path import abspath, basename, dirname, expanduser, getsize, isfile, splitext
 from typing import TypedDict
@@ -166,14 +167,15 @@ def del_or_keep_compressed(
                 else:
                     print("Old file deleted.")
 
-                # better then os.rename() on Windows which errors if destination file
-                # path already exists
-                os.replace(compr_path, orig_path)
+                # don't use os.(rename|replace)() on Windows, both error if src and
+                # dest are on different drives, former also if destination file already
+                # exists
+                shutil.move(compr_path, orig_path)
 
             elif suffix:
                 new_path = make_uniq_filename(orig_path, suffix)
 
-                os.rename(compr_path, new_path)
+                shutil.move(compr_path, new_path)
 
         else:
             not_enough_reduction = "no" if diff == 0 else f"only {diff / orig_size:.1%}"

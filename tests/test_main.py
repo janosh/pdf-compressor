@@ -1,75 +1,65 @@
 import os
-from shutil import copy2 as cp
+import sys
+from importlib.metadata import version
+from pathlib import Path
+from shutil import copy2
 
 import pytest
+from pytest import CaptureFixture, MonkeyPatch
 
 from pdf_compressor import DEFAULT_SUFFIX, main
 from pdf_compressor.utils import load_dotenv
 
-pdf_path = "assets/dummy.pdf"
-backup_path = "assets/dummy-backup.pdf"
-compressed_pdf_path = f"assets/dummy{DEFAULT_SUFFIX}.pdf"
+dummy_pdf = "assets/dummy.pdf"
+compressed_pdf = f"dummy{DEFAULT_SUFFIX}.pdf"
+
+expected_out = "'dummy.pdf' is now 9.6KB, before 13.0KB (3.4KB = 26.2% smaller)\n"
 
 
-def test_main():
+def test_main_format_cells(
+    tmp_path: Path, capsys: CaptureFixture[str], monkeypatch: MonkeyPatch
+) -> None:
     """Test standard main() invocation with changing cwd to PDF's folder."""
 
-    root_dir = os.getcwd()
+    # include path sep to test https://github.com/janosh/pdf-compressor/issues/9
+    input_pdf = f".{os.path.sep}dummy.pdf"
+    copy2(dummy_pdf, tmp_path / input_pdf)
+    monkeypatch.chdir(tmp_path)
 
-    try:
-        os.chdir("./assets")
+    ret = main([input_pdf])
+    assert ret == 0, "main() should return 0 on success"
 
-        # include path sep to test https://github.com/janosh/pdf-compressor/issues/9
-        main([f".{os.path.sep}dummy.pdf"])
+    assert os.path.isfile(compressed_pdf)
 
-    finally:  # ensures clean up code runs even if main() crashed
-        os.chdir(root_dir)
-
-        if os.path.isfile(compressed_pdf_path):
-            os.remove(compressed_pdf_path)
+    out, err = capsys.readouterr()
+    assert out == expected_out
+    assert err == ""
 
 
-def test_main_in_place():
+def test_main_in_place(capsys: CaptureFixture[str], tmp_path: Path) -> None:
     """Test in-place main() invocation."""
 
-    cp(pdf_path, backup_path)
+    input_pdf = copy2(dummy_pdf, tmp_path)
 
-    try:
-        main([pdf_path, "-i"])
+    ret = main([input_pdf, "-i"])
+    assert ret == 0, "main() should return 0 on success"
+    out, err = capsys.readouterr()
+    if sys.platform == "darwin":
+        assert out == expected_out + "Old file moved to trash.\n"
+    else:
+        assert out == expected_out + "Old file deleted.\n"
+    assert err == ""
 
-        # repeat same operation to test if file can be moved to trash (pdf-compressor
-        # should append file counter since a file by that name already exists)
-        cp(backup_path, pdf_path)
-        main([pdf_path, "-i"])
+    # repeat same operation to test if original file (after 1st compression) can
+    # successfully be moved to trash (pdf-compressor should append file counter
+    # since a file by that name [the original input_pdf] already exists)
+    main([input_pdf, "-i"])
 
-        # test dropping minimum size reduction
-        cp(backup_path, pdf_path)
-        main([pdf_path, "-i", "--min-size-reduction", "0"])
-
-    finally:
-        if os.path.isfile(backup_path):
-            os.replace(backup_path, pdf_path)
-
-
-def test_main_multi_file():
-    """Test multi-file main() invocation."""
-
-    dummy_1 = "assets/dummy-1.pdf"
-    dummy_2 = "assets/dummy-2.pdf"
-
-    cp(pdf_path, dummy_1)
-    cp(pdf_path, dummy_2)
-
-    try:
-        main([dummy_1, dummy_2, "-i"])
-
-    finally:
-        for path in [dummy_1, dummy_2]:
-            if os.path.isfile(path):
-                os.remove(path)
+    # test dropping minimum size reduction
+    main([input_pdf, "-i", "--min-size-reduction", "0"])
 
 
-def test_main_report_quota(capsys):
+def test_main_report_quota(capsys: CaptureFixture[str]) -> None:
     """Test CLI quota reporting."""
 
     main(["--report-quota"])
@@ -80,7 +70,7 @@ def test_main_report_quota(capsys):
     assert stderr == ""
 
 
-def test_main_set_api_key():
+def test_main_set_api_key() -> None:
     """Test CLI setting iLovePDF public API key."""
 
     load_dotenv()
@@ -100,7 +90,7 @@ def test_main_set_api_key():
 
 
 @pytest.mark.parametrize("arg", ["-v", "--version"])
-def test_main_report_version(capsys, arg):
+def test_main_report_version(capsys: CaptureFixture[str], arg: str) -> None:
     """Test CLI version flag."""
 
     with pytest.raises(SystemExit):
@@ -108,22 +98,22 @@ def test_main_report_version(capsys, arg):
         assert ret_code == 0
 
     stdout, stderr = capsys.readouterr()
-
-    assert stdout.startswith("PDF Compressor v")
+    pkg_version = version(pkg_name := "pdf-compressor")
+    assert stdout == f"{pkg_name} v{pkg_version}\n"
     assert stderr == ""
 
 
-def test_main_bad_args():
+def test_main_bad_args() -> None:
     """Test bad CLI flags."""
 
     with pytest.raises(
         AssertionError, match="Files must either be compressed in-place"
     ):
         # empty suffix and no in-place flag are invalid
-        main(["--suffix", "", pdf_path])
+        main(["--suffix", "", dummy_pdf])
 
 
-def test_main_error_on_no_input_files():
+def test_main_error_on_no_input_files() -> None:
     """Test error when no PDF input files are provided."""
 
     with pytest.raises(ValueError, match="No input files provided"):
@@ -135,7 +125,7 @@ def test_main_error_on_no_input_files():
     assert ret_code == 0
 
 
-def test_main_bad_files(capsys):
+def test_main_bad_files(capsys: CaptureFixture[str]) -> None:
     """Test bad file extensions."""
 
     files = ["foo.svg", "bar.pdf", "baz.png"]

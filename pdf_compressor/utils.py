@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
-from os.path import abspath, dirname, expanduser, getsize, isfile, relpath, splitext
+from os.path import abspath, basename, dirname, expanduser, getsize, isfile, splitext
 from typing import TypedDict
 from zipfile import ZipFile
 
@@ -110,6 +110,7 @@ def del_or_keep_compressed(
     inplace: bool,
     suffix: str,
     min_size_reduction: int,
+    verbose: bool,
 ) -> None:
     """Check whether compressed PDFs are smaller than original. If so, relocate each
     compressed file to same directory as the original either with suffix appended to
@@ -125,6 +126,7 @@ def del_or_keep_compressed(
             PDFs. Used only if inplace=False.
         min_size_reduction (int): How much compressed files need to be smaller than
             originals (in percent) for them to be kept.
+        verbose (bool): Whether to print file names or full file paths.
     """
 
     if (n_files := len(pdfs)) == 1:
@@ -145,9 +147,9 @@ def del_or_keep_compressed(
         counter = f"\n{idx}: " if n_files > 1 else ""
 
         if diff / orig_size > min_size_reduction / 100:
-            pretty_path = relpath(orig_path)
+            filepath = orig_path if verbose else basename(orig_path)
             print(
-                f"{counter}'{pretty_path}' is now {si_fmt(compressed_size)}B, before "
+                f"{counter}'{filepath}' is now {si_fmt(compressed_size)}B, before "
                 f"{si_fmt(orig_size)}B ({si_fmt(diff)}B = {diff/orig_size:.1%} smaller)"
             )
 

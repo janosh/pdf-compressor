@@ -12,7 +12,6 @@ DEFAULT_SUFFIX = "-compressed"
 def main(argv: Sequence[str] = None) -> int:
 
     parser = ArgumentParser(
-        "PDF Compressor",
         description="Batch compress PDFs on the command line. Powered by iLovePDF.com.",
         allow_abbrev=False,
     )
@@ -80,7 +79,8 @@ def main(argv: Sequence[str] = None) -> int:
     parser.add_argument(
         "--verbose",
         action="store_true",
-        help="When true, progress will be reported while tasks are running. Defaults "
+        help="When true, progress will be reported while tasks are running. Also prints"
+        " full file paths to compressed files instead of file name only. Defaults "
         "to False.",
     )
 
@@ -102,10 +102,9 @@ def main(argv: Sequence[str] = None) -> int:
         "Defaults to 'error'.",
     )
 
-    tb_version = version("pdf-compressor")
-
+    pkg_version = version(pkg_name := "pdf-compressor")
     parser.add_argument(
-        "-v", "--version", action="version", version=f"%(prog)s v{tb_version}"
+        "-v", "--version", action="version", version=f"{pkg_name} v{pkg_version}"
     )
     args = parser.parse_args(argv)
 
@@ -184,7 +183,7 @@ def main(argv: Sequence[str] = None) -> int:
 
     if not args.debug:
         del_or_keep_compressed(
-            pdfs, downloaded_file, args.inplace, args.suffix, min_size_red
+            pdfs, downloaded_file, args.inplace, args.suffix, min_size_red, args.verbose
         )
 
     return 0

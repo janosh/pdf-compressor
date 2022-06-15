@@ -47,27 +47,30 @@ def si_fmt(
 
     if abs(val) >= 1:
         # 1, Kilo, Mega, Giga, Tera, Peta, Exa, Zetta, Yotta
-        for scale in ("", "K", "M", "G", "T", "P", "E", "Z", "Y"):
+        for _scale in ("", "K", "M", "G", "T", "P", "E", "Z", "Y"):
             if abs(val) < factor:
                 break
             val /= factor
     else:
         mu_unicode = "\u03BC"
         # milli, micro, nano, pico, femto, atto, zepto, yocto
-        for scale in ("", "m", mu_unicode, "n", "p", "f", "a", "z", "y"):
+        for _scale in ("", "m", mu_unicode, "n", "p", "f", "a", "z", "y"):
             if abs(val) > 1:
                 break
             val *= factor
 
-    return f"{val:{fmt_spec}}{sep}{scale}"
+    return f"{val:{fmt_spec}}{sep}{_scale}"
 
 
-def load_dotenv(filepath: str = os.path.join(f"{ROOT}", ".env")) -> None:
+def load_dotenv(filepath: str = None) -> None:
     """Parse environment variables in .env into os.environ.
 
     Args:
         filepath (str, optional): Path to .env file. Defaults to './.env'.
     """
+    if filepath is None:
+        filepath = os.path.join(f"{ROOT}", ".env")
+
     if not isfile(filepath) or getsize(filepath) == 0:
         return
 
@@ -150,8 +153,9 @@ def del_or_keep_compressed(
         if diff / orig_size > min_size_reduction / 100:
             filepath = orig_path if verbose else basename(orig_path)
             print(
-                f"{counter}'{filepath}' is now {si_fmt(compressed_size)}B, before "
-                f"{si_fmt(orig_size)}B ({si_fmt(diff)}B = {diff/orig_size:.1%} smaller)"
+                f"{counter}'{filepath}' is now {si_fmt(compressed_size)}B, was "
+                f"{si_fmt(orig_size)}B which is {si_fmt(diff)}B = {diff/orig_size:.0%} "
+                "smaller."
             )
 
             if inplace:

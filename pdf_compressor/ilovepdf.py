@@ -62,7 +62,7 @@ class ILovePDF:
         self,
         type: Literal["get", "post"],
         endpoint: str,
-        payload: dict[str, Any] = {},
+        payload: dict[str, Any] = None,
         files: dict[str, BinaryIO] = None,
         stream: bool = False,
     ) -> Response:
@@ -75,6 +75,7 @@ class ILovePDF:
         # continue to use old server if task was already assigned one, else connect to
         # new server
         server = self.working_server or self.start_server
+        payload = payload or {}
 
         url = f"https://{server}/{self.api_version}/{endpoint}"
 

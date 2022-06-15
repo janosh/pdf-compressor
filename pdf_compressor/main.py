@@ -145,7 +145,7 @@ def main(argv: Sequence[str] = None) -> int:
     not_pdfs = [f for f in files if not f.lower().endswith(".pdf")]
 
     if args.on_bad_files == "error" and len(not_pdfs) > 0:
-        raise TypeError(
+        raise ValueError(
             f"Input files must be PDFs, got {len(not_pdfs):,} files without '.pdf' "
             f"extension: {', '.join(not_pdfs)}"
         )

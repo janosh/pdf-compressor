@@ -15,7 +15,7 @@ from pdf_compressor.utils import load_dotenv
 dummy_pdf = "assets/dummy.pdf"
 compressed_pdf = f"dummy{DEFAULT_SUFFIX}.pdf"
 
-expected_out = "'dummy.pdf' is now 9.6KB, before 13.0KB (3.4KB = 26.2% smaller)\n"
+expected_out = "'dummy.pdf' is now 9.6KB, was 13.0KB which is 3.4KB = 26% smaller.\n"
 
 
 def test_main_format_cells(
@@ -149,5 +149,5 @@ def test_main_bad_files(capsys: CaptureFixture[str]) -> None:
     assert stdout.startswith("Warning: Got 2 input files without '.pdf' extension:")
     assert stderr == ""
 
-    with pytest.raises(TypeError, match="Input files must be PDFs, got 2 "):
+    with pytest.raises(ValueError, match="Input files must be PDFs, got 2 "):
         main(files)

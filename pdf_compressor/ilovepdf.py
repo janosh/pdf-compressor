@@ -60,16 +60,16 @@ class ILovePDF:
 
     def _send_request(
         self,
-        type: Literal["get", "post"],
+        method: Literal["get", "post"],
         endpoint: str,
         payload: dict[str, Any] = None,
         files: dict[str, BinaryIO] = None,
         stream: bool = False,
     ) -> Response:
 
-        if type not in ["get", "post"]:
+        if method not in ["get", "post"]:
             raise ValueError(
-                f"iLovePDF API only accepts 'post' and 'get' requests, got {type=}"
+                f"iLovePDF API only accepts 'post' and 'get' requests, got {method=}"
             )
 
         # continue to use old server if task was already assigned one, else connect to
@@ -82,7 +82,7 @@ class ILovePDF:
         if self.debug:
             payload["debug"] = True
 
-        response = getattr(requests, type)(
+        response = getattr(requests, method)(
             url, data=payload, headers=self.headers, files=files, stream=stream
         )
 
@@ -144,12 +144,12 @@ class Task(ILovePDF):
         handle ensuing requests.
         """
 
-        json = self._send_request("get", f"start/{self.tool}").json()
+        response = self._send_request("get", f"start/{self.tool}").json()
 
-        if json:
-            self.working_server = json["server"]
+        if response:
+            self.working_server = response["server"]
 
-            self._task_id = json["task"]
+            self._task_id = response["task"]
 
         else:
             print(
@@ -199,10 +199,7 @@ class Task(ILovePDF):
             # for example self.mode does not have self.mode_values
             return True
 
-        if value in list_of_values:
-            return True
-        else:
-            return False
+        return value in list_of_values
 
     def process(self) -> ProcessResponse:
         """Uploads and then processes files added to this Task.

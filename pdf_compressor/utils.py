@@ -74,7 +74,7 @@ def load_dotenv(filepath: str = None) -> None:
     if not isfile(filepath) or getsize(filepath) == 0:
         return
 
-    with open(filepath) as dotenv:
+    with open(filepath, encoding="utf8") as dotenv:
         for line in dotenv:
             if line.startswith("#"):
                 continue
@@ -136,9 +136,9 @@ def del_or_keep_compressed(
     if (n_files := len(pdfs)) == 1:
         compressed_files = [downloaded_file]
     else:
-        archive = ZipFile(downloaded_file)
-        compressed_files = sorted(archive.namelist())
-        archive.extractall()
+        with ZipFile(downloaded_file) as archive:
+            compressed_files = sorted(archive.namelist())
+            archive.extractall()
 
     trash_path = f"{expanduser('~')}/.Trash"  # macOS only, no need for os.path.join()
 

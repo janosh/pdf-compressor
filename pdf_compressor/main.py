@@ -114,7 +114,7 @@ def main(argv: Sequence[str] = None) -> int:
             "project_public_"
         ), f"invalid API key, expected to start with 'project_public_', got {api_key=}"
 
-        with open(f"{ROOT}/.env", "w+") as file:
+        with open(f"{ROOT}/.env", "w+", encoding="utf8") as file:
             file.write(f"ILOVEPDF_PUBLIC_KEY={api_key}\n")
 
         return 0
@@ -149,7 +149,7 @@ def main(argv: Sequence[str] = None) -> int:
             f"Input files must be PDFs, got {len(not_pdfs):,} files without '.pdf' "
             f"extension: {', '.join(not_pdfs)}"
         )
-    elif args.on_bad_files == "warn" and len(not_pdfs) > 0:
+    if args.on_bad_files == "warn" and len(not_pdfs) > 0:
         print(
             f"Warning: Got {len(not_pdfs):,} input files without '.pdf' "
             f"extension: {', '.join(not_pdfs)}"
@@ -164,8 +164,7 @@ def main(argv: Sequence[str] = None) -> int:
     if len(pdfs) == 0:
         if args.on_no_pdfs == "error":
             raise ValueError("No input files provided")
-        else:
-            return 0
+        return 0
 
     task = Compress(api_key, compression_level=args.compression_level, debug=args.debug)
     task.verbose = args.verbose

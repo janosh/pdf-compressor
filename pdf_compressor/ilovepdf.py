@@ -117,7 +117,6 @@ class Task(ILovePDF):
         super().__init__(public_key, **kwargs)
 
         self.files: dict[str, str] = {}
-        self.download_path = "./"
         self._task_id = ""
         self._process_response: ProcessResponse | None = None
 
@@ -190,17 +189,6 @@ class Task(ILovePDF):
 
         return self.files
 
-    def check_values(self, prop: str, prop_val_key: str) -> bool:
-
-        value = getattr(self, prop)
-        try:
-            list_of_values = getattr(self, prop_val_key)
-        except AttributeError:
-            # for example self.mode does not have self.mode_values
-            return True
-
-        return value in list_of_values
-
     def process(self) -> ProcessResponse:
         """Uploads and then processes files added to this Task.
         Files will be processed in the same order as iterating over
@@ -223,7 +211,9 @@ class Task(ILovePDF):
             payload[f"files[{idx}][filename]"] = filename
             payload[f"files[{idx}][server_filename]"] = server_filename
 
-        response = self._send_request("post", "process", payload=payload).json()
+        response: ProcessResponse = self._send_request(
+            "post", "process", payload=payload
+        ).json()
 
         self._process_response = response
         n_files = response["output_filenumber"]
@@ -283,17 +273,6 @@ class Task(ILovePDF):
         self._send_request("post", f"task/{self._task_id}")
         self._task_id = ""
         self._process_response = None
-
-    def get_task_information(self) -> Response:
-        """Get task status information.
-
-        If the task is TaskSuccess, TaskSuccessWithWarnings or TaskError it
-        will also specify all files of the Task and their status one by one.
-
-        Returns:
-            Response: request response object
-        """
-        return self._send_request("get", f"task/{self._task_id}")
 
 
 class Compress(Task):

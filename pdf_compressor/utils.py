@@ -11,13 +11,13 @@ ROOT = dirname(dirname(abspath(__file__)))
 
 
 class ProcessResponse(TypedDict):
-    download_filename: str
-    filesize: int
-    output_filesize: int
-    output_filenumber: int
-    output_extensions: list[str]
-    timer: str
-    status: str
+    timer: str  # noqa: F841
+    status: str  # noqa: F841
+    download_filename: str  # noqa: F841
+    filesize: int  # noqa: F841
+    output_filesize: int  # noqa: F841
+    output_filenumber: int  # noqa: F841
+    output_extensions: list[str]  # noqa: F841
 
 
 def si_fmt(

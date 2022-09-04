@@ -50,3 +50,14 @@ repos:
     hooks:
       - id: codespell
         stages: [commit, commit-msg]
+
+  - repo: https://github.com/PyCQA/autoflake
+    rev: v1.4
+    hooks:
+      - id: autoflake
+
+  - repo: https://github.com/jendrikseipp/vulture
+    rev: v2.5
+    hooks:
+      - id: vulture
+        args: [.]

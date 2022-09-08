@@ -31,7 +31,7 @@ def si_fmt(
     Args:
         val (int | float): Some numerical value to format.
         binary (bool, optional): If True, scaling factor is 2^10 = 1024 else 1000.
-            Defaults to False.
+            Defaults to True.
         fmt_spec (str): f-string format specifier. Configure precision and left/right
             padding in returned string. Defaults to ".1f". Can be used to ensure leading
             or trailing whitespace for shorter numbers. Ex.1: ">10.2f" has 2 decimal
@@ -83,31 +83,6 @@ def load_dotenv(filepath: str = None) -> None:
             os.environ[key] = val
 
 
-def make_uniq_filename(orig_path: str, suffix: str = "") -> str:
-    """Append a suffix (if provided) and check if the resulting file path already
-    exists. If so, append counter and increment until the file path is unoccupied.
-
-    Args:
-        orig_path (str): Starting file path without suffix and counter.
-        suffix (str, optional): String to insert between file name and extension.
-            Defaults to "".
-
-    Returns:
-        str: New non-occupied file path.
-    """
-
-    base_name, ext = splitext(orig_path)
-    new_path = f"{base_name}{suffix}{ext}"
-
-    if isfile(new_path):
-        counter = 2
-        while isfile(f"{base_name}{suffix}-{counter}{ext}"):
-            counter += 1
-        new_path = f"{base_name}{suffix}-{counter}{ext}"
-
-    return new_path
-
-
 def del_or_keep_compressed(
     pdfs: list[str],
     downloaded_file: str,
@@ -132,20 +107,20 @@ def del_or_keep_compressed(
             originals (in percent) for them to be kept.
         verbose (bool): Whether to print file names or full file paths.
     """
-
     if (n_files := len(pdfs)) == 1:
         compressed_files = [downloaded_file]
     else:
         with ZipFile(downloaded_file) as archive:
+            # sort compressed_files since pdfs were also sorted
             compressed_files = sorted(archive.namelist())
             archive.extractall()
 
     trash_path = f"{expanduser('~')}/.Trash"  # macOS only, no need for os.path.join()
 
-    for idx, (orig_path, compr_path) in enumerate(zip(pdfs, compressed_files), 1):
+    for idx, (orig_path, compressed_path) in enumerate(zip(pdfs, compressed_files), 1):
 
         orig_size = getsize(orig_path)
-        compressed_size = getsize(compr_path)
+        compressed_size = getsize(compressed_path)
 
         diff = orig_size - compressed_size
         counter = f"\n{idx}: " if n_files > 1 else ""
@@ -165,21 +140,20 @@ def del_or_keep_compressed(
                     print("Old file moved to trash.")
                     orig_file_name = os.path.split(orig_path)[1]
 
-                    trash_file = make_uniq_filename(f"{trash_path}/{orig_file_name}")
-
-                    os.rename(orig_path, trash_file)
+                    os.rename(orig_path, f"{trash_path}/{orig_file_name}")
                 else:
                     print("Old file deleted.")
 
                 # don't use os.(rename|replace)() on Windows, both error if src and
                 # dest are on different drives, former also if destination file already
                 # exists
-                shutil.move(compr_path, orig_path)
+                shutil.move(compressed_path, orig_path)
 
             elif suffix:
-                new_path = make_uniq_filename(orig_path, suffix)
+                base_name, ext = splitext(orig_path)
+                new_path = f"{base_name}{suffix}{ext}"
 
-                shutil.move(compr_path, new_path)
+                shutil.move(compressed_path, new_path)
 
         else:
             not_enough_reduction = "no" if diff == 0 else f"only {diff / orig_size:.1%}"
@@ -187,7 +161,7 @@ def del_or_keep_compressed(
                 f"{counter}'{orig_path}' {not_enough_reduction} smaller than original "
                 "file. Keeping original."
             )
-            os.remove(compr_path)
+            os.remove(compressed_path)
 
     # remove ZIP archive and unused compressed PDFs
     for filename in (*compressed_files, downloaded_file):

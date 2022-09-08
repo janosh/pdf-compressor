@@ -140,7 +140,8 @@ def main(argv: Sequence[str] = None) -> int:
         "non-empty suffix to append to the name of compressed files."
     )
 
-    files = [f.replace("\\", "/") for f in args.filenames]
+    # use set() to ensure no duplicate files
+    files = sorted({f.replace("\\", "/") for f in args.filenames})
     pdfs = [f for f in files if f.lower().endswith(".pdf")]
     not_pdfs = [f for f in files if not f.lower().endswith(".pdf")]
 

@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import os
+import shutil
 import sys
 from importlib.metadata import version
 from pathlib import Path
-from shutil import copy2
 
 import pytest
-from pytest import CaptureFixture, MonkeyPatch
+from pytest import CaptureFixture
 
 from pdf_compressor import DEFAULT_SUFFIX, main
 from pdf_compressor.utils import load_dotenv
@@ -18,39 +18,41 @@ compressed_pdf = f"dummy{DEFAULT_SUFFIX}.pdf"
 expected_out = "'dummy.pdf' is now 9.6KB, was 13.0KB which is 3.4KB = 26% smaller.\n"
 
 
-def test_main_format_cells(
-    tmp_path: Path, capsys: CaptureFixture[str], monkeypatch: MonkeyPatch
-) -> None:
-    """Test standard main() invocation with changing cwd to PDF's folder."""
+def test_main_batch_compress(tmp_path: Path, capsys: CaptureFixture[str]) -> None:
+    """Test standard main() invocation batch-compressing 2 PDFs at once."""
 
     # include path sep to test https://github.com/janosh/pdf-compressor/issues/9
     input_pdf = f".{os.path.sep}dummy.pdf"
-    copy2(dummy_pdf, tmp_path / input_pdf)
-    monkeypatch.chdir(tmp_path)
+    shutil.copy2(dummy_pdf, input_path := str(tmp_path / input_pdf))
 
-    ret = main([input_pdf])
-    assert ret == 0, "main() should return 0 on success"
+    shutil.copy2(dummy_pdf, input_path_2 := str(tmp_path / "dummy2.pdf"))
 
-    assert os.path.isfile(compressed_pdf)
+    # add input_path twice to test how we handle duplicate input files
+    ret_code = main([input_path, input_path, input_path_2])
+    assert ret_code == 0, "main() should return 0 on success"
 
-    out, err = capsys.readouterr()
-    assert out == expected_out
-    assert err == ""
+    assert os.path.isfile(str(tmp_path / compressed_pdf))
+
+    std_out, std_err = capsys.readouterr()
+    assert (
+        std_out == f"\n1: {expected_out}\n2: {expected_out.replace('dummy', 'dummy2')}"
+    )
+    assert std_err == ""
 
 
 def test_main_in_place(capsys: CaptureFixture[str], tmp_path: Path) -> None:
     """Test in-place main() invocation."""
 
-    input_pdf = copy2(dummy_pdf, tmp_path)
+    input_pdf = shutil.copy2(dummy_pdf, tmp_path)
 
-    ret = main([input_pdf, "-i"])
-    assert ret == 0, "main() should return 0 on success"
-    out, err = capsys.readouterr()
+    ret_code = main([input_pdf, "-i"])
+    assert ret_code == 0, "main() should return 0 on success"
+    std_out, std_err = capsys.readouterr()
     if sys.platform == "darwin":
-        assert out == expected_out + "Old file moved to trash.\n"
+        assert std_out == expected_out + "Old file moved to trash.\n"
     else:
-        assert out == expected_out + "Old file deleted.\n"
-    assert err == ""
+        assert std_out == expected_out + "Old file deleted.\n"
+    assert std_err == ""
 
     # repeat same operation to test if original file (after 1st compression) can
     # successfully be moved to trash (pdf-compressor should append file counter
@@ -66,10 +68,10 @@ def test_main_report_quota(capsys: CaptureFixture[str]) -> None:
 
     main(["--report-quota"])
 
-    stdout, stderr = capsys.readouterr()
+    std_out, std_err = capsys.readouterr()
 
-    assert stdout.startswith("Remaining files ")
-    assert stderr == ""
+    assert std_out.startswith("Remaining files ")
+    assert std_err == ""
 
 
 def test_main_set_api_key() -> None:
@@ -99,10 +101,10 @@ def test_main_report_version(capsys: CaptureFixture[str], arg: str) -> None:
         ret_code = main([arg])
         assert ret_code == 0
 
-    stdout, stderr = capsys.readouterr()
+    std_out, std_err = capsys.readouterr()
     pkg_version = version(pkg_name := "pdf-compressor")
-    assert stdout == f"{pkg_name} v{pkg_version}\n"
-    assert stderr == ""
+    assert std_out == f"{pkg_name} v{pkg_version}\n"
+    assert std_err == ""
 
 
 def test_main_bad_args() -> None:
@@ -137,17 +139,17 @@ def test_main_bad_files(capsys: CaptureFixture[str]) -> None:
     except FileNotFoundError:  # 'bar.pdf' does not exist
         pass
 
-    stdout, stderr = capsys.readouterr()
-    assert stdout == "" and stderr == ""
+    std_out, std_err = capsys.readouterr()
+    assert std_out == "" and std_err == ""
 
     try:
         main(files + ["--on-bad-files", "warn"])
     except FileNotFoundError:  # 'bar.pdf' does not exist
         pass
 
-    stdout, stderr = capsys.readouterr()
-    assert stdout.startswith("Warning: Got 2 input files without '.pdf' extension:")
-    assert stderr == ""
+    std_out, std_err = capsys.readouterr()
+    assert std_out.startswith("Warning: Got 2 input files without '.pdf' extension:")
+    assert std_err == ""
 
     with pytest.raises(ValueError, match="Input files must be PDFs, got 2 "):
         main(files)

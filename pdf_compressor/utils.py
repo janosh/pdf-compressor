@@ -4,27 +4,16 @@ import os
 import shutil
 import sys
 from os.path import abspath, basename, dirname, expanduser, getsize, isfile, splitext
-from typing import TypedDict
 from zipfile import ZipFile
 
 ROOT = dirname(dirname(abspath(__file__)))
 
 
-class ProcessResponse(TypedDict):
-    timer: str  # noqa: F841
-    status: str  # noqa: F841
-    download_filename: str  # noqa: F841
-    filesize: int  # noqa: F841
-    output_filesize: int  # noqa: F841
-    output_filenumber: int  # noqa: F841
-    output_extensions: list[str]  # noqa: F841
-
-
 def si_fmt(
     val: int | float, binary: bool = True, fmt_spec: str = ".1f", sep: str = ""
 ) -> str:
-    """Convert large numbers into human readable format using SI prefixes in
-    binary (1024) or metric (1000) mode.
+    """Convert large numbers into human readable format using SI prefixes in binary
+    (1024) or metric (1000) mode.
 
     https://nist.gov/pml/weights-and-measures/metric-si-prefixes
 

@@ -1,5 +1,5 @@
-"""
-Code in this file was adapted from Andrea Bruschi's pylovepdf.
+"""Code in this file was adapted from Andrea Bruschi's pylovepdf.
+
 https://github.com/AndyCyberSec/pylovepdf
 """
 
@@ -7,26 +7,36 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any, BinaryIO, Literal
+from typing import Any, BinaryIO, Literal, TypedDict
 
 import requests
 from requests import Response
 
-from pdf_compressor.utils import ProcessResponse
+
+class ProcessResponse(TypedDict):
+    """Type of ILovePDF.process() return value."""
+
+    timer: str  # noqa: F841
+    status: str  # noqa: F841
+    download_filename: str  # noqa: F841
+    filesize: int  # noqa: F841
+    output_filesize: int  # noqa: F841
+    output_filenumber: int  # noqa: F841
+    output_extensions: list[str]  # noqa: F841
 
 
 class ILovePDF:
     """Communicates with the iLovePDF API."""
 
     def __init__(self, public_key: str, debug: bool = False) -> None:
-        """
+        """Creates a new iLovePDF object to interact with the API.
+
         Args:
             public_key (str): iLovePDF API key. Get yours by signing up at
                 https://developer.ilovepdf.com/signup.
             debug (bool, optional): Whether to perform real API requests (consumes
                 quota) or just report what would happen. Defaults to False.
         """
-
         self.public_key = public_key
 
         self.api_version = "v1"
@@ -43,7 +53,6 @@ class ILovePDF:
 
     def auth(self) -> None:
         """Get iLovePDF API session token."""
-
         payload = {"public_key": self.public_key}
 
         response = self._send_request("post", endpoint="auth", payload=payload)
@@ -52,7 +61,9 @@ class ILovePDF:
 
     def get_quota(self) -> int:
         """Get the number of remaining files that can be processed by the API in the
-        current billing cycle. response has only one key: {'remaining_files': int}.
+        current billing cycle.
+
+        Response has only one key: {'remaining_files': int}.
         """
         response = json.loads(self._send_request("get", "info").text)
 
@@ -60,18 +71,12 @@ class ILovePDF:
 
     def _send_request(
         self,
-        method: Literal["get", "post"],
+        method: Literal["get", "post", "delete"],
         endpoint: str,
         payload: dict[str, Any] = None,
         files: dict[str, BinaryIO] = None,
         stream: bool = False,
     ) -> Response:
-
-        if method not in ["get", "post"]:
-            raise ValueError(
-                f"iLovePDF API only accepts 'post' and 'get' requests, got {method=}"
-            )
-
         # continue to use old server if task was already assigned one, else connect to
         # new server
         server = self.working_server or self.start_server
@@ -104,7 +109,8 @@ class Task(ILovePDF):
     def __init__(
         self, public_key: str, tool: str, verbose: bool = False, **kwargs: Any
     ) -> None:
-        """
+        """Creates a new task object to interact with the API.
+
         Args:
             public_key (str): iLovePDF API key.
             tool (str): The desired API tool you wish to access. Possible values: merge,
@@ -112,8 +118,9 @@ class Task(ILovePDF):
                 officepdf, repair, rotate, protect, validatepdfa, htmlpdf, extract.
                 pdf-compressor only supports 'compress'. Might change in the future.
                 https://developer.ilovepdf.com/docs/api-reference#process.
+            verbose (bool, optional): Whether to print progress messages while uploading
+                and processing files. Defaults to False.
         """
-
         super().__init__(public_key, **kwargs)
 
         self.files: dict[str, str] = {}
@@ -142,7 +149,6 @@ class Task(ILovePDF):
         """Initiate contact with iLovePDF API to get assigned a working server that will
         handle ensuing requests.
         """
-
         response = self._send_request("get", f"start/{self.tool}").json()
 
         if response:
@@ -157,7 +163,14 @@ class Task(ILovePDF):
             )
 
     def add_file(self, file_path: str) -> None:
+        """Add a file to the task.
 
+        Args:
+            file_path (str): Path of file to be added.
+
+        Raises:
+            FileNotFoundError: If file does not exist.
+        """
         if not os.path.isfile(file_path):
             raise FileNotFoundError(f"'{file_path}' does not exist")
 
@@ -174,7 +187,6 @@ class Task(ILovePDF):
             dict[str, str]: Map from local filenames to corresponding filenames on the
                 server.
         """
-
         payload = {"task": self._task_id}
 
         for filename in self.files:
@@ -190,14 +202,12 @@ class Task(ILovePDF):
         return self.files
 
     def process(self) -> ProcessResponse:
-        """Uploads and then processes files added to this Task.
-        Files will be processed in the same order as iterating over
-        self.files.items().
+        """Uploads and then processes files added to this Task. Files will be processed
+        in the same order as iterating over self.files.items().
 
         Returns:
             ProcessResponse: The post-processing JSON response.
         """
-
         if self.verbose:
             print("Uploading file(s)...")
 
@@ -265,12 +275,15 @@ class Task(ILovePDF):
         return file_path
 
     def delete_current_task(self) -> None:
+        """Delete the current task from iLovePDF servers.
 
+        https://developer.ilovepdf.com/docs/api-reference#task
+        """
         if not self._task_id:
             print("Warning: You're trying to delete a task that was never started")
             return
 
-        self._send_request("post", f"task/{self._task_id}")
+        self._send_request("delete", f"task/{self._task_id}")
         self._task_id = ""
         self._process_response = None
 
@@ -291,7 +304,8 @@ class Compress(Task):
     def __init__(
         self, public_key: str, compression_level: str = "recommended", **kwargs: Any
     ) -> None:
-        """
+        """Subclass of Task for using the iLovePDF compression tool.
+
         Args:
             public_key (str): iLovePDF public API key. Get yours by signing up at
                 https://developer.ilovepdf.com/signup.

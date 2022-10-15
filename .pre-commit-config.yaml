@@ -56,6 +56,17 @@ repos:
     hooks:
       - id: autoflake
 
+  - repo: https://github.com/PyCQA/pydocstyle
+    rev: 6.1.1
+    hooks:
+      - id: pydocstyle
+        exclude: tests
+
+  - repo: https://github.com/PyCQA/docformatter
+    rev: v1.5.0
+    hooks:
+      - id: docformatter
+
   - repo: https://github.com/jendrikseipp/vulture
     rev: v2.6
     hooks:

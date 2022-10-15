@@ -4,7 +4,6 @@ from pdf_compressor.utils import si_fmt
 
 
 def test_greek_fmt() -> None:
-
     assert si_fmt(123456) == "120.6K"
 
     assert si_fmt(12345678, fmt_spec=">6.2f", sep=" ") == " 11.77 M"

@@ -10,7 +10,7 @@ DEFAULT_SUFFIX = "-compressed"
 
 
 def main(argv: Sequence[str] = None) -> int:
-
+    """Compress PDFs using iLovePDF's API."""
     parser = ArgumentParser(
         description="Batch compress PDFs on the command line. Powered by iLovePDF.com.",
         allow_abbrev=False,

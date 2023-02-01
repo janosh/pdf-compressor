@@ -109,7 +109,6 @@ def main(argv: Sequence[str] = None) -> int:
     args = parser.parse_args(argv)
 
     if api_key := args.set_api_key:
-
         assert api_key.startswith(
             "project_public_"
         ), f"invalid API key, expected to start with 'project_public_', got {api_key=}"
@@ -128,7 +127,6 @@ def main(argv: Sequence[str] = None) -> int:
         )
 
     if args.report_quota:
-
         remaining_files = ILovePDF(api_key).get_quota()
 
         print(f"Remaining files in this billing cycle: {remaining_files:,}")

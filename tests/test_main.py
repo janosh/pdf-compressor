@@ -20,7 +20,6 @@ expected_out = "'dummy.pdf' is now 9.6KB, was 13.0KB which is 3.4KB = 26% smalle
 
 def test_main_batch_compress(tmp_path: Path, capsys: CaptureFixture[str]) -> None:
     """Test standard main() invocation batch-compressing 2 PDFs at once."""
-
     # include path sep to test https://github.com/janosh/pdf-compressor/issues/9
     input_pdf = f".{os.path.sep}dummy.pdf"
     shutil.copy2(dummy_pdf, input_path := str(tmp_path / input_pdf))
@@ -42,7 +41,6 @@ def test_main_batch_compress(tmp_path: Path, capsys: CaptureFixture[str]) -> Non
 
 def test_main_in_place(capsys: CaptureFixture[str], tmp_path: Path) -> None:
     """Test in-place main() invocation."""
-
     input_pdf = shutil.copy2(dummy_pdf, tmp_path)
 
     ret_code = main([input_pdf, "-i"])
@@ -65,7 +63,6 @@ def test_main_in_place(capsys: CaptureFixture[str], tmp_path: Path) -> None:
 
 def test_main_report_quota(capsys: CaptureFixture[str]) -> None:
     """Test CLI quota reporting."""
-
     main(["--report-quota"])
 
     std_out, std_err = capsys.readouterr()
@@ -76,7 +73,6 @@ def test_main_report_quota(capsys: CaptureFixture[str]) -> None:
 
 def test_main_set_api_key() -> None:
     """Test CLI setting iLovePDF public API key."""
-
     load_dotenv()
 
     api_key = os.environ["ILOVEPDF_PUBLIC_KEY"]  # save API key to reset it later
@@ -96,7 +92,6 @@ def test_main_set_api_key() -> None:
 @pytest.mark.parametrize("arg", ["-v", "--version"])
 def test_main_report_version(capsys: CaptureFixture[str], arg: str) -> None:
     """Test CLI version flag."""
-
     with pytest.raises(SystemExit):
         ret_code = main([arg])
         assert ret_code == 0
@@ -109,7 +104,6 @@ def test_main_report_version(capsys: CaptureFixture[str], arg: str) -> None:
 
 def test_main_bad_args() -> None:
     """Test bad CLI flags."""
-
     with pytest.raises(
         AssertionError, match="Files must either be compressed in-place"
     ):
@@ -119,7 +113,6 @@ def test_main_bad_args() -> None:
 
 def test_main_error_on_no_input_files() -> None:
     """Test error when no PDF input files are provided."""
-
     with pytest.raises(ValueError, match="No input files provided"):
         ret_code = main(["--on-no-pdfs", "error"])
         assert ret_code == 1
@@ -131,7 +124,6 @@ def test_main_error_on_no_input_files() -> None:
 
 def test_main_bad_files(capsys: CaptureFixture[str]) -> None:
     """Test bad file extensions."""
-
     files = ["foo.svg", "bar.pdf", "baz.png"]
 
     try:

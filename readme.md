@@ -6,9 +6,9 @@
 
 [![Tests](https://github.com/janosh/pdf-compressor/workflows/Tests/badge.svg)](https://github.com/janosh/pdf-compressor/actions)
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/janosh/pdf-compressor/main.svg)](https://results.pre-commit.ci/latest/github/janosh/pdf-compressor/main)
-[![PyPI](https://img.shields.io/pypi/v/pdf-compressor?logo=pypi)](https://pypi.org/project/pdf-compressor)
-[![Requires Python 3.8+](https://img.shields.io/badge/Python-3.8+-blue.svg?logo=python)](https://python.org/downloads)
-[![PyPI Downloads](https://img.shields.io/pypi/dm/pdf-compressor)](https://pypistats.org/packages/pdf-compressor)
+[![PyPI](https://img.shields.io/pypi/v/pdf-compressor?logo=pypi&logoColor=white)](https://pypi.org/project/pdf-compressor)
+[![Requires Python 3.8+](https://img.shields.io/badge/Python-3.8+-blue.svg?logo=python&logoColor=white)](https://python.org/downloads)
+[![PyPI Downloads](https://img.shields.io/pypi/dm/pdf-compressor?logo=icloud&logoColor=white)](https://pypistats.org/packages/pdf-compressor)
 
 </h3>
 

@@ -190,7 +190,6 @@ class Task(ILovePDF):
         payload = {"task": self._task_id}
 
         for filename in self.files:
-
             with open(filename, "rb") as file:
                 response = self._send_request(
                     "post", "upload", payload=payload, files={"file": file}
@@ -217,7 +216,6 @@ class Task(ILovePDF):
         payload["task"] = self._task_id
 
         for idx, (filename, server_filename) in enumerate(self.files.items()):
-
             payload[f"files[{idx}][filename]"] = filename
             payload[f"files[{idx}][server_filename]"] = server_filename
 

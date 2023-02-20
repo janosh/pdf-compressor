@@ -31,12 +31,8 @@ test = ["pytest", "pytest-cov"]
 [project.scripts]
 pdf-compressor = "pdf_compressor:main"
 
-[tool.setuptools]
-include-package-data = false
-
-[tool.setuptools.packages.find]
-exclude = ["tests*"]
-namespaces = false
+[tool.setuptools.packages]
+find = { include = ["pdf_compressor"] }
 
 [tool.distutils.bdist_wheel]
 universal = true

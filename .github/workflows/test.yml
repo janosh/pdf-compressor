@@ -47,8 +47,9 @@ jobs:
 
       - name: Build and upload dist
         run: |
-          pip install setuptools wheel twine
-          python setup.py sdist bdist_wheel
+          pip install build twine
+          python -m build
+          twine check dist/* --strict
           twine upload --skip-existing dist/*.tar.gz
         env:
           TWINE_USERNAME: janosh

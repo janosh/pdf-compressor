@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pdf-compressor"
-version = "0.2.1"
+version = "0.3.0"
 description = "CLI + Python API for batch compressing PDFs with iLovePDF.com"
 authors = [{ name = "Janosh Riebesell", email = "janosh.riebesell@gmail.com" }]
 readme = "readme.md"

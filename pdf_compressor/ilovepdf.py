@@ -120,6 +120,7 @@ class Task(ILovePDF):
                 https://developer.ilovepdf.com/docs/api-reference#process.
             verbose (bool, optional): Whether to print progress messages while uploading
                 and processing files. Defaults to False.
+            **kwargs: Additional keyword arguments to pass to ILovePDF.__init__().
         """
         super().__init__(public_key, **kwargs)
 
@@ -309,6 +310,7 @@ class Compress(Task):
                 https://developer.ilovepdf.com/signup.
             compression_level (str, optional): How hard to squeeze the file size.
                 'extreme' noticeably degrades image quality. Defaults to 'recommended'.
+            **kwargs: Additional keyword arguments to pass to Task.__init__().
         """
         super().__init__(public_key, tool="compress", **kwargs)
 

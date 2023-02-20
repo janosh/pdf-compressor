@@ -1,0 +1,77 @@
+[build-system]
+requires = ["setuptools>=61.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pdf-compressor"
+version = "0.2.1"
+description = "CLI + Python API for batch compressing PDFs with iLovePDF.com"
+authors = [{ name = "Janosh Riebesell", email = "janosh.riebesell@gmail.com" }]
+readme = "readme.md"
+keywords = ["pdf", "compression", "ilovepdf", "cli"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "License :: OSI Approved :: MIT License",
+]
+requires-python = ">=3.8"
+dependencies = ["requests >= 2.25.0"]
+license = { file = "license" }
+
+[project.urls]
+Homepage = "https://github.com/janosh/pdf-compressor"
+Package = "https://pypi.org/project/pdf-compressor"
+
+[project.optional-dependencies]
+test = ["pytest", "pytest-cov"]
+
+[project.scripts]
+pdf-compressor = "pdf_compressor:main"
+
+[tool.setuptools.packages]
+find = { include = ["pdf_compressor"] }
+
+[tool.distutils.bdist_wheel]
+universal = true
+
+[tool.distutils.isort]
+profile = "black"
+
+[tool.flake8]
+max-line-length = "88"
+max-complexity = "16"
+ignore = "E731, E203"
+per-file-ignores = "\n__init__.py: F401"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-p no:warnings"
+
+[tool.mypy]
+check_untyped_defs = true
+disallow_any_generics = true
+disallow_incomplete_defs = true
+disallow_untyped_defs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+no_implicit_optional = false
+
+[tool.autoflake]
+in-place = "true"
+remove-unused-variables = "true"
+remove-all-unused-imports = "true"
+expand-star-imports = "true"
+ignore-init-module-imports = "true"
+
+[tool.pydocstyle]
+convention = "google"
+add-ignore = "D100,D104,D107,D205,D415"
+
+[tool.docformatter]
+recursive = "true"
+wrap-summaries = "88"
+wrap-descriptions = "88"
+close-quotes-on-newline = "true"

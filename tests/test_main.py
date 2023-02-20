@@ -114,7 +114,7 @@ def test_main_bad_args() -> None:
 def test_main_error_on_no_input_files() -> None:
     """Test error when no PDF input files are provided."""
     with pytest.raises(ValueError, match="No input files provided"):
-        ret_code = main(["--on-no-pdfs", "error"])
+        ret_code = main(["--on-no-files", "error"])
         assert ret_code == 1
 
     # check no error by default

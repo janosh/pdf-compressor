@@ -1,4 +1,5 @@
 import os
+import re
 from argparse import ArgumentParser
 from importlib.metadata import version
 from typing import Sequence
@@ -85,7 +86,7 @@ def main(argv: Sequence[str] = None) -> int:
     )
 
     parser.add_argument(
-        "--on-no-pdfs",
+        "--on-no-files",
         choices=("error", "ignore"),
         default="ignore",
         help="What to do when no input PDFs received. One of 'ignore' or 'error', "
@@ -139,13 +140,14 @@ def main(argv: Sequence[str] = None) -> int:
     )
 
     # use set() to ensure no duplicate files
-    files = sorted({f.replace("\\", "/") for f in args.filenames})
-    pdfs = [f for f in files if f.lower().endswith(".pdf")]
-    not_pdfs = [f for f in files if not f.lower().endswith(".pdf")]
+    files: list[str] = sorted({f.replace("\\", "/").strip() for f in args.filenames})
+    # match files case insensitively ending with .pdf(,a,x) and possible white space
+    pdfs = [f for f in files if re.match(r".*\.pdf[ax]?\s*$", f.lower())]
+    not_pdfs = {*files} - {*pdfs}
 
     if args.on_bad_files == "error" and len(not_pdfs) > 0:
         raise ValueError(
-            f"Input files must be PDFs, got {len(not_pdfs):,} files without '.pdf' "
+            f"Input files must be PDFs, got {len(not_pdfs):,} files with unexpected "
             f"extension: {', '.join(not_pdfs)}"
         )
     if args.on_bad_files == "warn" and len(not_pdfs) > 0:
@@ -161,7 +163,7 @@ def main(argv: Sequence[str] = None) -> int:
             print("Nothing to do: received no input PDF files.")
 
     if len(pdfs) == 0:
-        if args.on_no_pdfs == "error":
+        if args.on_no_files == "error":
             raise ValueError("No input files provided")
         return 0
 

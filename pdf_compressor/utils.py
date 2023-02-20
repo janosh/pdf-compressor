@@ -4,6 +4,7 @@ import os
 import shutil
 import sys
 from os.path import abspath, basename, dirname, expanduser, getsize, isfile, splitext
+from typing import Sequence
 from zipfile import ZipFile
 
 ROOT = dirname(dirname(abspath(__file__)))
@@ -73,7 +74,7 @@ def load_dotenv(filepath: str = None) -> None:
 
 
 def del_or_keep_compressed(
-    pdfs: list[str],
+    pdfs: Sequence[str],
     downloaded_file: str,
     inplace: bool,
     suffix: str,

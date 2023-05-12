@@ -92,9 +92,9 @@ def test_main_set_api_key() -> None:
 @pytest.mark.parametrize("arg", ["-v", "--version"])
 def test_main_report_version(capsys: CaptureFixture[str], arg: str) -> None:
     """Test CLI version flag."""
-    with pytest.raises(SystemExit):
-        ret_code = main([arg])
-        assert ret_code == 0
+    with pytest.raises(SystemExit) as exc_info:
+        main([arg])
+    assert exc_info.value.code == 0
 
     std_out, std_err = capsys.readouterr()
     pkg_version = version(pkg_name := "pdf-compressor")
@@ -114,8 +114,7 @@ def test_main_bad_args() -> None:
 def test_main_error_on_no_input_files() -> None:
     """Test error when no PDF input files are provided."""
     with pytest.raises(ValueError, match="No input files provided"):
-        ret_code = main(["--on-no-files", "error"])
-        assert ret_code == 1
+        main(["--on-no-files", "error"])
 
     # check no error by default
     ret_code = main([])
@@ -127,15 +126,16 @@ def test_main_bad_files(capsys: CaptureFixture[str]) -> None:
     files = ["foo.svg", "bar.pdf", "baz.png"]
 
     try:
-        main(files + ["--on-bad-files", "ignore"])
+        main([*files, "--on-bad-files", "ignore"])
     except FileNotFoundError:  # 'bar.pdf' does not exist
         pass
 
     std_out, std_err = capsys.readouterr()
-    assert std_out == "" and std_err == ""
+    assert std_out == ""
+    assert std_err == ""
 
     try:
-        main(files + ["--on-bad-files", "warn"])
+        main([*files, "--on-bad-files", "warn"])
     except FileNotFoundError:  # 'bar.pdf' does not exist
         pass
 

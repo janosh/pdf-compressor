@@ -4,13 +4,16 @@ import os
 import shutil
 import sys
 from importlib.metadata import version
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 from pytest import CaptureFixture
 
 from pdf_compressor import DEFAULT_SUFFIX, main
 from pdf_compressor.utils import load_dotenv
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 dummy_pdf = "assets/dummy.pdf"
 compressed_pdf = f"dummy{DEFAULT_SUFFIX}.pdf"

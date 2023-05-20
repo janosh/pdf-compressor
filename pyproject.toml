@@ -57,7 +57,9 @@ select = [
     "C4",  # flake8-comprehensions
     "D",   # pydocstyle
     "E",   # pycodestyle error
+    "EXE", # flake8-executable
     "F",   # pyflakes
+    "FLY", # flynt
     "I",   # isort
     "ICN", # flake8-import-conventions
     "ISC", # flake8-implicit-str-concat
@@ -65,28 +67,24 @@ select = [
     "PIE", # flake8-pie
     "PL",  # pylint
     "PT",  # flake8-pytest-style
+    "PYI", # flakes8-pyi
     "Q",   # flake8-quotes
+    "RET", # flake8-return
     "RSE", # flake8-raise
     "RUF", # Ruff-specific rules
     "SIM", # flake8-simplify
+    "TCH", # flake8-type-checking
     "TID", # tidy imports
     "UP",  # pyupgrade
     "W",   # pycodestyle warning
     "YTT", # flake8-2020
-
 ]
 ignore = [
-    "B019",    # functools.lru_cache on methods can lead to memory leaks
-    "B023",    # Function definition does not bind loop variable
-    "B904",    # Within an except clause, raise exceptions with ...
     "D100",    # Missing docstring in public module
     "D104",    # Missing docstring in public package
     "D205",    # 1 blank line required between summary line and description
-    "E741",    # tmp: we should fix all ambiguous variable names
     "PLC1901", # compare-to-empty-string
     "PLR",     # pylint refactor
-    "PLR2004", # Magic number
-    "PLW0120", # tmp: awaiting bug fix https://github.com/charliermarsh/ruff/issues/3019
     "PT013",   # pytest-incorrect-pytest-import
     "SIM105",  # Use contextlib.suppress(FileNotFoundError) instead of try-except-pass
 ]

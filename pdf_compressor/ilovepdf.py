@@ -73,8 +73,8 @@ class ILovePDF:
         self,
         method: Literal["get", "post", "delete"],
         endpoint: str,
-        payload: dict[str, Any] = None,
-        files: dict[str, BinaryIO] = None,
+        payload: dict[str, Any] | None = None,
+        files: dict[str, BinaryIO] | None = None,
         stream: bool = False,
     ) -> Response:
         # continue to use old server if task was already assigned one, else connect to
@@ -237,7 +237,7 @@ class Task(ILovePDF):
 
         return response
 
-    def download(self, save_to_dir: str = None) -> str:
+    def download(self, save_to_dir: str | None = None) -> str:
         """Download this task's output file(s) for the given task. Should not be called
         until after task.process(). In case of a single output file, it is saved to disk
         as a PDF. Multiple files are saved in a compressed ZIP folder.

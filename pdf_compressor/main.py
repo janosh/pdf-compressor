@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import re
 from argparse import ArgumentParser
@@ -10,7 +12,7 @@ from pdf_compressor.utils import ROOT, del_or_keep_compressed, load_dotenv
 DEFAULT_SUFFIX = "-compressed"
 
 
-def main(argv: Sequence[str] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     """Compress PDFs using iLovePDF's API."""
     parser = ArgumentParser(
         description="Batch compress PDFs on the command line. Powered by iLovePDF.com.",

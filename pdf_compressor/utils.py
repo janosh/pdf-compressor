@@ -52,7 +52,7 @@ def si_fmt(
     return f"{val:{fmt_spec}}{sep}{_scale}"
 
 
-def load_dotenv(filepath: str = None) -> None:
+def load_dotenv(filepath: str | None = None) -> None:
     """Parse environment variables in .env into os.environ.
 
     Args:

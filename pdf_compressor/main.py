@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import re
 from argparse import ArgumentParser
+from glob import glob
 from importlib.metadata import version
 from typing import Sequence
 
@@ -143,6 +144,11 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     # use set() to ensure no duplicate files
     files: list[str] = sorted({f.replace("\\", "/").strip() for f in args.filenames})
+    # for each directory received glob for all PDFs in it
+    for filepath in files:
+        if os.path.isdir(filepath):
+            files.remove(filepath)
+            files.extend(glob(os.path.join(filepath, "**", "*.pdf*"), recursive=True))
     # match files case insensitively ending with .pdf(,a,x) and possible white space
     pdfs = [f for f in files if re.match(r".*\.pdf[ax]?\s*$", f.lower())]
     not_pdfs = {*files} - {*pdfs}

@@ -11,7 +11,7 @@ ROOT = dirname(dirname(abspath(__file__)))
 
 
 def si_fmt(
-    val: int | float, binary: bool = True, fmt_spec: str = ".1f", sep: str = ""
+    val: float, binary: bool = True, fmt_spec: str = ".1f", sep: str = ""
 ) -> str:
     """Convert large numbers into human readable format using SI prefixes in binary
     (1024) or metric (1000) mode.
@@ -156,5 +156,5 @@ def del_or_keep_compressed(
     for filename in (*compressed_files, downloaded_file):
         try:
             os.remove(filename)
-        except OSError:
+        except OSError:  # noqa: PERF203
             pass

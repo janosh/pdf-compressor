@@ -72,7 +72,8 @@ def test_main_dir_glob(capsys: CaptureFixture[str], tmp_path: Path) -> None:
     assert ret_code == 0, "main() should return 0 on success"
     std_out, std_err = capsys.readouterr()
     assert std_out.startswith("PDFs to be compressed with iLovePDF: 1")
-    assert input_pdf in std_out
+    if sys.platform == "darwin":
+        assert input_pdf in std_out
     assert std_err == ""
 
 

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import tempfile
 from typing import Any, BinaryIO, Literal, TypedDict
 
 import requests
@@ -243,7 +244,7 @@ class Task(ILovePDF):
         as a PDF. Multiple files are saved in a compressed ZIP folder.
 
         Raises:
-            ValueError: If task.download() is called in absence of downloadbale files,
+            ValueError: If task.download() is called in absence of downloadable files,
                 usually because task.process() wasn't called yet.
 
         Returns:
@@ -259,7 +260,7 @@ class Task(ILovePDF):
         response = self._send_request("get", endpoint, stream=True)
 
         if not save_to_dir:  # save_to_dir is None or ''
-            save_to_dir = os.getcwd()
+            save_to_dir = tempfile.mkdtemp()
         else:
             os.makedirs(save_to_dir, exist_ok=True)
 

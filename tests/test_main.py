@@ -82,7 +82,7 @@ def test_main_report_quota(capsys: CaptureFixture[str]) -> None:
 
     std_out, std_err = capsys.readouterr()
 
-    assert std_out.startswith("Remaining files ")
+    assert std_out.startswith("Remaining files in this billing cycle: ")
     assert std_err == ""
 
 

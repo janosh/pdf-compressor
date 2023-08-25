@@ -64,6 +64,18 @@ def test_main_in_place(capsys: CaptureFixture[str], tmp_path: Path) -> None:
     main([input_pdf, "-i", "--min-size-reduction", "0"])
 
 
+def test_main_dir_glob(capsys: CaptureFixture[str], tmp_path: Path) -> None:
+    """Test passing a directory to make sure main() recursively globs for PDFs."""
+    input_pdf = shutil.copy2(dummy_pdf, tmp_path)
+
+    ret_code = main([str(tmp_path), "-i", "--verbose"])
+    assert ret_code == 0, "main() should return 0 on success"
+    std_out, std_err = capsys.readouterr()
+    assert std_out.startswith("PDFs to be compressed with iLovePDF: 1")
+    assert input_pdf in std_out
+    assert std_err == ""
+
+
 def test_main_report_quota(capsys: CaptureFixture[str]) -> None:
     """Test CLI quota reporting."""
     main(["--report-quota"])

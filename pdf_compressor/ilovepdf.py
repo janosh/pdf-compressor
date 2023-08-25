@@ -261,12 +261,12 @@ class Task(ILovePDF):
 
         if not save_to_dir:  # save_to_dir is None or ''
             save_to_dir = tempfile.mkdtemp()
-        else:
-            os.makedirs(save_to_dir, exist_ok=True)
 
         file_path = os.path.join(
             save_to_dir, self._process_response["download_filename"]
         )
+
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
         # response.content is PDF file or ZIP archive, either way, we save as binary
         with open(file_path, "wb") as file:

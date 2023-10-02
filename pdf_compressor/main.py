@@ -5,10 +5,13 @@ import re
 from argparse import ArgumentParser
 from glob import glob
 from importlib.metadata import version
-from typing import Sequence
+from typing import TYPE_CHECKING
 
 from pdf_compressor.ilovepdf import Compress, ILovePDF
 from pdf_compressor.utils import ROOT, del_or_keep_compressed, load_dotenv
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 DEFAULT_SUFFIX = "-compressed"
 

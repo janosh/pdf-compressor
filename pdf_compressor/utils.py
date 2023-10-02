@@ -4,8 +4,11 @@ import os
 import shutil
 import sys
 from os.path import abspath, basename, dirname, expanduser, getsize, isfile, splitext
-from typing import Sequence
+from typing import TYPE_CHECKING
 from zipfile import ZipFile
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 ROOT = dirname(dirname(abspath(__file__)))
 

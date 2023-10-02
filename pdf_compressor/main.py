@@ -5,10 +5,13 @@ import re
 from argparse import ArgumentParser
 from glob import glob
 from importlib.metadata import version
-from typing import Sequence
+from typing import TYPE_CHECKING
 
 from pdf_compressor.ilovepdf import Compress, ILovePDF
 from pdf_compressor.utils import ROOT, del_or_keep_compressed, load_dotenv
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 DEFAULT_SUFFIX = "-compressed"
 
@@ -65,7 +68,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--min-size-reduction",
         "--min-red",
         type=int,
-        choices=range(0, 101),
+        choices=range(101),
         metavar="[0-100]",  # prevents long list in argparse help message
         help="How much compressed files need to be smaller than originals (in percent) "
         "for them to be kept. Defaults to 10 when also passing -i/--inplace, else 0."

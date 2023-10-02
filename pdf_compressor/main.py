@@ -65,7 +65,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--min-size-reduction",
         "--min-red",
         type=int,
-        choices=range(0, 101),
+        choices=range(101),
         metavar="[0-100]",  # prevents long list in argparse help message
         help="How much compressed files need to be smaller than originals (in percent) "
         "for them to be kept. Defaults to 10 when also passing -i/--inplace, else 0."

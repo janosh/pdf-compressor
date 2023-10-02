@@ -7,7 +7,7 @@
 [![Tests](https://github.com/janosh/pdf-compressor/workflows/Tests/badge.svg)](https://github.com/janosh/pdf-compressor/actions)
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/janosh/pdf-compressor/main.svg)](https://results.pre-commit.ci/latest/github/janosh/pdf-compressor/main)
 [![PyPI](https://img.shields.io/pypi/v/pdf-compressor?logo=pypi&logoColor=white)](https://pypi.org/project/pdf-compressor)
-[![Requires Python 3.8+](https://img.shields.io/badge/Python-3.8+-blue.svg?logo=python&logoColor=white)](https://python.org/downloads)
+[![Requires Python 3.9+](https://img.shields.io/badge/Python-3.9+-blue.svg?logo=python&logoColor=white)](https://python.org/downloads)
 [![PyPI Downloads](https://img.shields.io/pypi/dm/pdf-compressor?logo=icloud&logoColor=white)](https://pypistats.org/packages/pdf-compressor)
 
 </h3>
@@ -48,5 +48,5 @@ pdf-compressor **/*.pdf
 | `--debug`                  | `False`         | When true, iLovePDF won't process the request but only reports the parameters that would have been sent to the server.                                                                                                      |
 | `--verbose`                | `False`         | When true, progress will be reported while tasks are running.                                                                                                                                                               |
 | `-v/--version`             |                 | Get the version number of `pdf-compressor`.                                                                                                                                                                                 |
-| `--on-no-files`             | `'ignore'`      | What to do when no input PDFs received. One of `'ignore'` or `'error'`, former exits 0, latter raises `ValueError`. Can be useful when using `pdf-compressor` in shell scripts.                                             |
+| `--on-no-files`            | `'ignore'`      | What to do when no input PDFs received. One of `'ignore'` or `'error'`, former exits 0, latter raises `ValueError`. Can be useful when using `pdf-compressor` in shell scripts.                                             |
 | `--on-bad-files`           | `'error'`       | How to behave when receiving input files that don't appear to be PDFs. One of `'error'`, `'warn'`, `'ignore'`. Error type will be `ValueError`. Code used to check if something is PDF: `filepath.lower().endswith(".pdf")` |

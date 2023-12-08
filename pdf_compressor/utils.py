@@ -111,18 +111,31 @@ def del_or_keep_compressed(
 
     trash_path = f"{expanduser('~')}/.Trash"  # macOS only, no need for os.path.join()
 
-    for idx, (orig_path, compressed_path) in enumerate(zip(pdfs, compressed_files), 1):
+    total_orig_size = total_compressed_size = 0
+
+    for idx, orig_path in enumerate(pdfs):
+        if n_files > 1:
+            compressed_path = next(
+                filename
+                for filename in compressed_files
+                if os.path.basename(filename).startswith(f"{idx}-")
+            )
+        else:
+            compressed_path = compressed_files[0]
         orig_size = getsize(orig_path)
         compressed_size = getsize(compressed_path)
 
+        total_orig_size += orig_size
+        total_compressed_size += compressed_size
+
         diff = orig_size - compressed_size
-        counter = f"\n{idx}: " if n_files > 1 else ""
+        counter = f"\n{idx + 1} " if n_files > 1 else ""
 
         if diff / orig_size > min_size_reduction / 100:
             filepath = orig_path if verbose else basename(orig_path)
             print(
-                f"{counter}'{filepath}' is now {si_fmt(compressed_size)}B, was "
-                f"{si_fmt(orig_size)}B which is {si_fmt(diff)}B = {diff/orig_size:.0%} "
+                f"{counter}'{filepath}': {si_fmt(orig_size)}B -> "
+                f"{si_fmt(compressed_size)}B, {si_fmt(diff)}B = {diff/orig_size:.0%} "
                 "smaller."
             )
 
@@ -162,3 +175,11 @@ def del_or_keep_compressed(
             os.remove(filename)
         except OSError:  # noqa: PERF203
             pass
+
+    # print overall size reduction if >= 2 file
+    overall_reduction = total_orig_size - total_compressed_size
+    if n_files > 2 and overall_reduction > 0:
+        print(
+            f"Overall size reduction in {n_files} files: {si_fmt(overall_reduction)}B, "
+            f"from {si_fmt(total_orig_size)}B to {si_fmt(total_compressed_size)}B"
+        )

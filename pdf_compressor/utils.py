@@ -111,7 +111,12 @@ def del_or_keep_compressed(
 
     trash_path = f"{expanduser('~')}/.Trash"  # macOS only, no need for os.path.join()
 
-    for idx, (orig_path, compressed_path) in enumerate(zip(pdfs, compressed_files), 1):
+    for idx, orig_path in enumerate(pdfs):
+        compressed_path = next(
+            filename
+            for filename in compressed_files
+            if os.path.basename(filename).startswith(f"{idx}-")
+        )
         orig_size = getsize(orig_path)
         compressed_size = getsize(compressed_path)
 

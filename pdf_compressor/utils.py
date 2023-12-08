@@ -126,13 +126,13 @@ def del_or_keep_compressed(
         total_compressed_size += compressed_size
 
         diff = orig_size - compressed_size
-        counter = f"\n{idx + 1}: " if n_files > 1 else ""
+        counter = f"\n{idx + 1} " if n_files > 1 else ""
 
         if diff / orig_size > min_size_reduction / 100:
             filepath = orig_path if verbose else basename(orig_path)
             print(
-                f"{counter}'{filepath}' is now {si_fmt(compressed_size)}B, was "
-                f"{si_fmt(orig_size)}B which is {si_fmt(diff)}B = {diff/orig_size:.0%} "
+                f"{counter}'{filepath}': {si_fmt(orig_size)}B -> "
+                f"{si_fmt(compressed_size)}B, {si_fmt(diff)}B = {diff/orig_size:.0%} "
                 "smaller."
             )
 

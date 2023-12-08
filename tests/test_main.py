@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 dummy_pdf = "assets/dummy.pdf"
 compressed_pdf = f"dummy{DEFAULT_SUFFIX}.pdf"
 
-expected_out = "'dummy.pdf' is now 9.6KB, was 13.0KB which is 3.4KB = 26% smaller.\n"
+expected_out = "'dummy.pdf': 13.0KB -> 9.6KB, 3.4KB = 26% smaller.\n"
 
 
 def test_main_batch_compress(tmp_path: Path, capsys: CaptureFixture[str]) -> None:
@@ -36,9 +36,7 @@ def test_main_batch_compress(tmp_path: Path, capsys: CaptureFixture[str]) -> Non
     assert os.path.isfile(str(tmp_path / compressed_pdf))
 
     std_out, std_err = capsys.readouterr()
-    assert (
-        std_out == f"\n1: {expected_out}\n2: {expected_out.replace('dummy', 'dummy2')}"
-    )
+    assert std_out == f"\n1 {expected_out}\n2 {expected_out.replace('dummy', 'dummy2')}"
     assert std_err == ""
 
 

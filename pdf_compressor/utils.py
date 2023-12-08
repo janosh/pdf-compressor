@@ -114,11 +114,14 @@ def del_or_keep_compressed(
     total_orig_size = total_compressed_size = 0
 
     for idx, orig_path in enumerate(pdfs):
-        compressed_path = next(
-            filename
-            for filename in compressed_files
-            if os.path.basename(filename).startswith(f"{idx}-")
-        )
+        if n_files > 1:
+            compressed_path = next(
+                filename
+                for filename in compressed_files
+                if os.path.basename(filename).startswith(f"{idx}-")
+            )
+        else:
+            compressed_path = compressed_files[0]
         orig_size = getsize(orig_path)
         compressed_size = getsize(compressed_path)
 

@@ -82,7 +82,7 @@ def del_or_keep_compressed(
     inplace: bool,
     suffix: str,
     min_size_reduction: int,
-    verbose: bool,
+    verbose: bool = False,
 ) -> None:
     """Check whether compressed PDFs are smaller than original. If so, relocate each
     compressed file to same directory as the original either with suffix appended to
@@ -98,7 +98,8 @@ def del_or_keep_compressed(
             PDFs. Used only if inplace=False.
         min_size_reduction (int): How much compressed files need to be smaller than
             originals (in percent) for them to be kept.
-        verbose (bool): Whether to print file names or full file paths.
+        verbose (bool): Whether to print file names or full file paths. Defaults to
+            False.
     """
     if (n_files := len(pdfs)) == 1:
         compressed_files = [downloaded_file]

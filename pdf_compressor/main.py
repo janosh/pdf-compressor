@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 DEFAULT_SUFFIX = "-compressed"
 
 
-def main(argv: Sequence[str] | None = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:  # noqa: C901
     """Compress PDFs using iLovePDF's API."""
     parser = ArgumentParser(
         description="Batch compress PDFs on the command line. Powered by iLovePDF.com.",

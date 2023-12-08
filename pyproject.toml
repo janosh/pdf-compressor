@@ -55,6 +55,7 @@ select = ["ALL"]
 ignore = [
     "ANN101",
     "ANN401", # Dynamically typed expressions (typing.Any) are disallowed in `**kwargs
+    "C901",   # Function is too complex
     "COM",
     "D100",   # Missing docstring in public module
     "D104",   # Missing docstring in public package

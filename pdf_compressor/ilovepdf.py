@@ -266,6 +266,8 @@ class Task(ILovePDF):
             save_to_dir, self._process_response["download_filename"]
         )
 
+        # create parent dir (we use download_filename instead of save_to_dir because it
+        # may contain subdirs)
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
         # response.content is PDF file or ZIP archive, either way, we save as binary

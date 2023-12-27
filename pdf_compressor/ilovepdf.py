@@ -228,10 +228,11 @@ class Task(ILovePDF):
         self._process_response = response
         n_files = response["output_filenumber"]
 
-        assert len(self.files) == response["output_filenumber"], (
-            f"Unexpected file count mismatch: task received {len(self.files)} files "
-            f"for processing, but only {n_files} were downloaded from server."
-        )
+        if len(self.files) != response["output_filenumber"]:
+            raise ValueError(
+                f"Unexpected file count mismatch: task received {len(self.files)} files"
+                f" for processing, but only {n_files} were downloaded from server."
+            )
 
         if self.verbose:
             print(f"File(s) uploaded and processed!\n{response = }")
@@ -317,8 +318,9 @@ class Compress(Task):
         """
         super().__init__(public_key, tool="compress", **kwargs)
 
-        assert compression_level in (
-            valid_levels := ("low", "recommended", "extreme")
-        ), f"Invalid {compression_level=}, must be one of {valid_levels}"
+        if compression_level not in (valid_levels := ("low", "recommended", "extreme")):
+            raise ValueError(
+                f"Invalid {compression_level=}, must be one of {valid_levels}"
+            )
 
         self.process_params["compression_level"] = compression_level

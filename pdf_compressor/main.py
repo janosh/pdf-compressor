@@ -109,6 +109,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         "Defaults to 'error'.",
     )
 
+    parser.add_argument(
+        "--write-stats",
+        type=str,
+        default="",
+        help="File path to write a CSV, Excel or other pandas supported file format "
+        "with original vs compressed file sizes and actions taken on each input file",
+    )
+
     pkg_version = version(pkg_name := "pdf-compressor")
     parser.add_argument(
         "-v", "--version", action="version", version=f"{pkg_name} v{pkg_version}"
@@ -116,9 +124,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if api_key := args.set_api_key:
-        assert api_key.startswith(
-            "project_public_"
-        ), f"invalid API key, expected to start with 'project_public_', got {api_key=}"
+        if not api_key.startswith("project_public_"):
+            raise ValueError(
+                f"invalid API key, must start with 'project_public_', got {api_key=}"
+            )
 
         with open(f"{ROOT}/.env", "w+", encoding="utf8") as file:
             file.write(f"ILOVEPDF_PUBLIC_KEY={api_key}\n")
@@ -140,10 +149,11 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         return 0
 
-    assert args.inplace or args.suffix, (
-        "Files must either be compressed in-place (--inplace) or you must specify a "
-        "non-empty suffix to append to the name of compressed files."
-    )
+    if not (args.inplace or args.suffix):
+        raise ValueError(
+            "Files must either be compressed in-place (--inplace) or you must specify a"
+            " non-empty suffix to append to the name of compressed files."
+        )
 
     # use set() to ensure no duplicate files
     files: list[str] = sorted({f.replace("\\", "/").strip() for f in args.filenames})
@@ -193,9 +203,29 @@ def main(argv: Sequence[str] | None = None) -> int:
     min_size_red = args.min_size_reduction or (10 if args.inplace else 0)
 
     if not args.debug:
-        del_or_keep_compressed(
+        stats = del_or_keep_compressed(
             pdfs, downloaded_file, args.inplace, args.suffix, min_size_red, args.verbose
         )
+
+    if args.write_stats:
+        try:
+            import pandas as pd
+        except ImportError:
+            err_msg = "To write stats to file, install pandas: pip install pandas"
+            raise ImportError(err_msg) from None
+
+        df_stats = pd.DataFrame(stats).T
+        df_stats.index.name = "file"
+        stats_path = args.write_stats.strip().lower()
+
+        if ".csv" in stats_path:
+            df_stats.to_csv(args.write_stats, float_format="%.4f")
+        elif ".xlsx" in stats_path or ".xls" in stats_path:
+            df_stats.to_excel(args.write_stats, float_format="%.4f")
+        elif ".json" in stats_path:
+            df_stats.to_json(args.write_stats)
+        elif ".html" in stats_path:
+            df_stats.to_html(args.write_stats, float_format="%.4f")
 
     return 0
 

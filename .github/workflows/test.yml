@@ -19,17 +19,17 @@ jobs:
 
     steps:
       - name: Check out repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: 3.9
           cache: pip
 
       - name: Install dependencies
         # see options.extras_require in pyproject.toml
-        run: pip install .[test]
+        run: pip install '.[test,stats]'
 
       - name: Run tests
         run: pytest --durations 0 --cov .
@@ -42,7 +42,7 @@ jobs:
     if: github.event_name == 'release' && needs.tests.result == 'success'
     steps:
       - name: Check out repo
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Build and upload dist
         run: |

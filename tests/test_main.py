@@ -6,6 +6,7 @@ import sys
 from importlib.metadata import version
 from typing import TYPE_CHECKING
 
+import pandas as pd
 import pytest
 from pytest import CaptureFixture
 
@@ -18,7 +19,7 @@ if TYPE_CHECKING:
 dummy_pdf = "assets/dummy.pdf"
 compressed_pdf = f"dummy{DEFAULT_SUFFIX}.pdf"
 
-expected_out = "'dummy.pdf': 13.0KB -> 9.6KB, 3.4KB = 26% smaller.\n"
+expected_out = "'dummy.pdf': 13.0KB -> 9.6KB which is 3.4KB = 26% smaller.\n"
 
 
 def test_main_batch_compress(tmp_path: Path, capsys: CaptureFixture[str]) -> None:
@@ -30,10 +31,24 @@ def test_main_batch_compress(tmp_path: Path, capsys: CaptureFixture[str]) -> Non
     shutil.copy2(dummy_pdf, input_path_2 := str(tmp_path / "dummy2.pdf"))
 
     # add input_path twice to test how we handle duplicate input files
-    ret_code = main([input_path, input_path, input_path_2])
-    assert ret_code == 0, "main() should return 0 on success"
+    stats_path = f"{tmp_path}/stats.csv"
+    ret_code = main([input_path, input_path, input_path_2, "--write-stats", stats_path])
+    assert ret_code == 0, f"expected main() exit code to be 0, got {ret_code}"
 
-    assert os.path.isfile(str(tmp_path / compressed_pdf))
+    # check stats file was written and has expected content
+    df_stats = pd.read_csv(stats_path)
+    assert list(df_stats) == [
+        "file",
+        "original size (B)",
+        "compressed size (B)",
+        "size reduction (B)",
+        "size reduction (%)",
+        "action",
+    ]
+    assert df_stats.shape == (2, 6)
+    assert df_stats.file.tolist() == ["dummy.pdf", "dummy2.pdf"]
+
+    assert os.path.isfile(f"{tmp_path}/{compressed_pdf}")
 
     std_out, std_err = capsys.readouterr()
     assert std_out == f"\n1 {expected_out}\n2 {expected_out.replace('dummy', 'dummy2')}"

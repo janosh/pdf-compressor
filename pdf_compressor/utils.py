@@ -83,7 +83,7 @@ def del_or_keep_compressed(
     suffix: str,
     min_size_reduction: int,
     verbose: bool = False,
-) -> None:
+) -> dict[str, dict[str, object]]:
     """Check whether compressed PDFs are smaller than original. If so, relocate each
     compressed file to same directory as the original either with suffix appended to
     file name or overwriting the original if inplace=True.
@@ -100,6 +100,9 @@ def del_or_keep_compressed(
             originals (in percent) for them to be kept.
         verbose (bool): Whether to print file names or full file paths. Defaults to
             False.
+
+    Returns:
+        pd.DataFrame: Table with original and compressed file sizes.
     """
     if (n_files := len(pdfs)) == 1:
         compressed_files = [downloaded_file]
@@ -109,9 +112,9 @@ def del_or_keep_compressed(
             compressed_files = sorted(archive.namelist())
             archive.extractall()
 
-    trash_path = f"{expanduser('~')}/.Trash"  # macOS only, no need for os.path.join()
-
     total_orig_size = total_compressed_size = 0
+
+    stats = {}
 
     for idx, orig_path in enumerate(pdfs):
         if n_files > 1:
@@ -131,12 +134,14 @@ def del_or_keep_compressed(
         diff = orig_size - compressed_size
         counter = f"\n{idx + 1} " if n_files > 1 else ""
 
+        # check if size reduction is large enough to keep compressed file and
+        # optionally move original to trash if inplace=True
         if diff / orig_size > min_size_reduction / 100:
             filepath = orig_path if verbose else basename(orig_path)
             print(
                 f"{counter}'{filepath}': {si_fmt(orig_size)}B -> "
-                f"{si_fmt(compressed_size)}B, {si_fmt(diff)}B = {diff/orig_size:.0%} "
-                "smaller."
+                f"{si_fmt(compressed_size)}B which is {si_fmt(diff)}B = "
+                f"{diff/orig_size:.0%} smaller."
             )
 
             if inplace:
@@ -146,7 +151,7 @@ def del_or_keep_compressed(
                     print("Old file moved to trash.")
                     orig_file_name = os.path.split(orig_path)[1]
 
-                    os.rename(orig_path, f"{trash_path}/{orig_file_name}")
+                    os.rename(orig_path, f"{expanduser('~')}/.Trash/{orig_file_name}")
                 else:
                     print("Old file deleted.")
 
@@ -154,12 +159,14 @@ def del_or_keep_compressed(
                 # dest are on different drives, former also if destination file already
                 # exists
                 shutil.move(compressed_path, orig_path)
+                action = "replaced original"
 
             elif suffix:
                 base_name, ext = splitext(orig_path)
                 new_path = f"{base_name}{suffix}{ext}"
 
                 shutil.move(compressed_path, new_path)
+                action = f"saved as {basename(new_path)}"
 
         else:
             not_enough_reduction = "no" if diff == 0 else f"only {diff / orig_size:.1%}"
@@ -168,6 +175,15 @@ def del_or_keep_compressed(
                 "file. Keeping original."
             )
             os.remove(compressed_path)
+            action = "kept original"
+
+        stats[basename(orig_path)] = {
+            "original size (B)": orig_size,
+            "compressed size (B)": compressed_size,
+            "size reduction (B)": diff,
+            "size reduction (%)": diff / orig_size,
+            "action": action,
+        }
 
     # remove ZIP archive and unused compressed PDFs
     for filename in (*compressed_files, downloaded_file):
@@ -183,3 +199,5 @@ def del_or_keep_compressed(
             f"Overall size reduction in {n_files} files: {si_fmt(overall_reduction)}B, "
             f"from {si_fmt(total_orig_size)}B to {si_fmt(total_compressed_size)}B"
         )
+
+    return stats

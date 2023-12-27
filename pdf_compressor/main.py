@@ -124,9 +124,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if api_key := args.set_api_key:
-        assert api_key.startswith(
-            "project_public_"
-        ), f"invalid API key, expected to start with 'project_public_', got {api_key=}"
+        if not api_key.startswith("project_public_"):
+            raise ValueError(
+                f"invalid API key, must start with 'project_public_', got {api_key=}"
+            )
 
         with open(f"{ROOT}/.env", "w+", encoding="utf8") as file:
             file.write(f"ILOVEPDF_PUBLIC_KEY={api_key}\n")
@@ -148,10 +149,11 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         return 0
 
-    assert args.inplace or args.suffix, (
-        "Files must either be compressed in-place (--inplace) or you must specify a "
-        "non-empty suffix to append to the name of compressed files."
-    )
+    if not (args.inplace or args.suffix):
+        raise ValueError(
+            "Files must either be compressed in-place (--inplace) or you must specify a"
+            " non-empty suffix to append to the name of compressed files."
+        )
 
     # use set() to ensure no duplicate files
     files: list[str] = sorted({f.replace("\\", "/").strip() for f in args.filenames})
@@ -208,11 +210,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.write_stats:
         try:
             import pandas as pd
-
         except ImportError:
-            raise ImportError(
-                "To write stats to file, install pandas: pip install pandas"
-            ) from None
+            err_msg = "To write stats to file, install pandas: pip install pandas"
+            raise ImportError(err_msg) from None
 
         df_stats = pd.DataFrame(stats).T
         df_stats.index.name = "file"

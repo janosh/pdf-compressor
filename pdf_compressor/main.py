@@ -109,6 +109,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         "Defaults to 'error'.",
     )
 
+    parser.add_argument(
+        "--write-stats",
+        type=str,
+        default="",
+        help="File path to write a CSV, Excel or other pandas supported file format "
+        "with original vs compressed file sizes and actions taken on each input file",
+    )
+
     pkg_version = version(pkg_name := "pdf-compressor")
     parser.add_argument(
         "-v", "--version", action="version", version=f"{pkg_name} v{pkg_version}"
@@ -193,9 +201,31 @@ def main(argv: Sequence[str] | None = None) -> int:
     min_size_red = args.min_size_reduction or (10 if args.inplace else 0)
 
     if not args.debug:
-        del_or_keep_compressed(
+        stats = del_or_keep_compressed(
             pdfs, downloaded_file, args.inplace, args.suffix, min_size_red, args.verbose
         )
+
+    if args.write_stats:
+        try:
+            import pandas as pd
+
+        except ImportError:
+            raise ImportError(
+                "To write stats to file, install pandas: pip install pandas"
+            ) from None
+
+        df_stats = pd.DataFrame(stats).T
+        df_stats.index.name = "file"
+        stats_path = args.write_stats.strip().lower()
+
+        if ".csv" in stats_path:
+            df_stats.to_csv(args.write_stats, float_format="%.4f")
+        elif ".xlsx" in stats_path or ".xls" in stats_path:
+            df_stats.to_excel(args.write_stats, float_format="%.4f")
+        elif ".json" in stats_path:
+            df_stats.to_json(args.write_stats)
+        elif ".html" in stats_path:
+            df_stats.to_html(args.write_stats, float_format="%.4f")
 
     return 0
 

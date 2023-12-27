@@ -26,6 +26,7 @@ Package = "https://pypi.org/project/pdf-compressor"
 
 [project.optional-dependencies]
 test = ["pytest", "pytest-cov"]
+stats = ["pandas"]              # needed for --write-stats option
 
 [project.scripts]
 pdf-compressor = "pdf_compressor:main"

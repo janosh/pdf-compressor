@@ -151,7 +151,12 @@ def del_or_keep_compressed(
                     print("Old file moved to trash.")
                     orig_file_name = os.path.split(orig_path)[1]
 
-                    os.rename(orig_path, f"{expanduser('~')}/.Trash/{orig_file_name}")
+                    trash_path = f"{expanduser('~')}/.Trash/{orig_file_name}"
+                    if isfile(trash_path):  # if file with same name already in trash,
+                        # delete it to avoid PermissionError: [Errno 1] Operation not
+                        # permitted
+                        os.remove(trash_path)
+                    os.rename(orig_path, trash_path)
                 else:
                     print("Old file deleted.")
 

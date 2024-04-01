@@ -45,7 +45,7 @@ def si_fmt(
                 break
             val /= factor
     else:
-        mu_unicode = "\u03BC"
+        mu_unicode = "\u03bc"
         # milli, micro, nano, pico, femto, atto, zepto, yocto
         for _scale in ("", "m", mu_unicode, "n", "p", "f", "a", "z", "y"):
             if abs(val) > 1:

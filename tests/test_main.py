@@ -106,7 +106,7 @@ def test_main_set_api_key() -> None:
 
     api_key = os.environ["ILOVEPDF_PUBLIC_KEY"]  # save API key to reset it later
 
-    with pytest.raises(AssertionError, match="invalid API key"):
+    with pytest.raises(ValueError, match="invalid API key"):
         main(["--set-api-key", "foo"])
 
     main(["--set-api-key", "project_public_foobar"])
@@ -133,9 +133,7 @@ def test_main_report_version(capsys: CaptureFixture[str], arg: str) -> None:
 
 def test_main_bad_args() -> None:
     """Test bad CLI flags."""
-    with pytest.raises(
-        AssertionError, match="Files must either be compressed in-place"
-    ):
+    with pytest.raises(ValueError, match="Files must either be compressed in-place"):
         # empty suffix and no in-place flag are invalid
         main(["--suffix", "", dummy_pdf])
 

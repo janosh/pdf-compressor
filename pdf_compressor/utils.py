@@ -141,7 +141,7 @@ def del_or_keep_compressed(
             print(
                 f"{counter}'{filepath}': {si_fmt(orig_size)}B -> "
                 f"{si_fmt(compressed_size)}B which is {si_fmt(diff)}B = "
-                f"{diff/orig_size:.0%} smaller."
+                f"{diff / orig_size:.0%} smaller."
             )
 
             if inplace:

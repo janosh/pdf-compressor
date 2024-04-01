@@ -45,7 +45,7 @@ def si_fmt(
                 break
             val /= factor
     else:
-        mu_unicode = "\u03BC"
+        mu_unicode = "\u03bc"
         # milli, micro, nano, pico, femto, atto, zepto, yocto
         for _scale in ("", "m", mu_unicode, "n", "p", "f", "a", "z", "y"):
             if abs(val) > 1:
@@ -141,7 +141,7 @@ def del_or_keep_compressed(
             print(
                 f"{counter}'{filepath}': {si_fmt(orig_size)}B -> "
                 f"{si_fmt(compressed_size)}B which is {si_fmt(diff)}B = "
-                f"{diff/orig_size:.0%} smaller."
+                f"{diff / orig_size:.0%} smaller."
             )
 
             if inplace:

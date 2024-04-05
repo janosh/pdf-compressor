@@ -62,16 +62,14 @@ def load_dotenv(filepath: str | None = None) -> None:
     if filepath is None:
         filepath = os.path.join(f"{ROOT}", ".env")
 
-    if not isfile(filepath) or getsize(filepath) == 0:
-        return
+    if isfile(filepath):
+        with open(filepath, encoding="utf8") as dotenv:
+            for line in dotenv:
+                if line.startswith("#"):
+                    continue
 
-    with open(filepath, encoding="utf8") as dotenv:
-        for line in dotenv:
-            if line.startswith("#"):
-                continue
-
-            key, val = line.replace("\n", "").split("=")
-            os.environ[key] = val
+                key, val = line.replace("\n", "").split("=")
+                os.environ[key] = val
 
 
 def del_or_keep_compressed(

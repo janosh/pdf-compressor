@@ -11,6 +11,7 @@ import pytest
 from pytest import CaptureFixture
 
 from pdf_compressor import DEFAULT_SUFFIX, main
+from pdf_compressor.main import API_KEY_KEY
 from pdf_compressor.utils import load_dotenv
 
 if TYPE_CHECKING:
@@ -32,7 +33,9 @@ def test_main_batch_compress(tmp_path: Path, capsys: CaptureFixture[str]) -> Non
 
     # add input_path twice to test how we handle duplicate input files
     stats_path = f"{tmp_path}/stats.csv"
-    ret_code = main([input_path, input_path, input_path_2, "--write-stats", stats_path])
+    ret_code = main(
+        [input_path, input_path, input_path_2, "--write-stats-path", stats_path]
+    )
     assert ret_code == 0, f"expected main() exit code to be 0, got {ret_code}"
 
     # check stats file was written and has expected content
@@ -104,7 +107,7 @@ def test_main_set_api_key() -> None:
     """Test CLI setting iLovePDF public API key."""
     load_dotenv()
 
-    api_key = os.environ["ILOVEPDF_PUBLIC_KEY"]  # save API key to reset it later
+    api_key = os.environ[API_KEY_KEY]  # save API key to reset it later
 
     with pytest.raises(ValueError, match="invalid API key"):
         main(["--set-api-key", "foo"])
@@ -113,7 +116,7 @@ def test_main_set_api_key() -> None:
 
     load_dotenv()
 
-    assert os.environ["ILOVEPDF_PUBLIC_KEY"] == "project_public_foobar"
+    assert os.environ[API_KEY_KEY] == "project_public_foobar"
 
     main(["--set-api-key", api_key])  # restore previous value
 

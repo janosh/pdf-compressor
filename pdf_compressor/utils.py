@@ -13,9 +13,7 @@ if TYPE_CHECKING:
 ROOT = dirname(dirname(abspath(__file__)))
 
 
-def si_fmt(
-    val: float, binary: bool = True, fmt_spec: str = ".1f", sep: str = ""
-) -> str:
+def si_fmt(val: float, binary: bool = True, fmt: str = ".1f", sep: str = "") -> str:
     """Convert large numbers into human readable format using SI prefixes in binary
     (1024) or metric (1000) mode.
 
@@ -25,7 +23,7 @@ def si_fmt(
         val (int | float): Some numerical value to format.
         binary (bool, optional): If True, scaling factor is 2^10 = 1024 else 1000.
             Defaults to True.
-        fmt_spec (str): f-string format specifier. Configure precision and left/right
+        fmt (str): f-string format specifier. Configure precision and left/right
             padding in returned string. Defaults to ".1f". Can be used to ensure leading
             or trailing whitespace for shorter numbers. Ex.1: ">10.2f" has 2 decimal
             places and is at least 10 characters long with leading spaces if necessary.
@@ -52,7 +50,7 @@ def si_fmt(
                 break
             val *= factor
 
-    return f"{val:{fmt_spec}}{sep}{_scale}"
+    return f"{val:{fmt}}{sep}{_scale}"
 
 
 def load_dotenv(filepath: str | None = None) -> None:
@@ -64,16 +62,14 @@ def load_dotenv(filepath: str | None = None) -> None:
     if filepath is None:
         filepath = os.path.join(f"{ROOT}", ".env")
 
-    if not isfile(filepath) or getsize(filepath) == 0:
-        return
+    if isfile(filepath):
+        with open(filepath, encoding="utf8") as dotenv:
+            for line in dotenv:
+                if line.startswith("#"):
+                    continue
 
-    with open(filepath, encoding="utf8") as dotenv:
-        for line in dotenv:
-            if line.startswith("#"):
-                continue
-
-            key, val = line.replace("\n", "").split("=")
-            os.environ[key] = val
+                key, val = line.replace("\n", "").split("=")
+                os.environ[key] = val
 
 
 def del_or_keep_compressed(
@@ -151,7 +147,12 @@ def del_or_keep_compressed(
                     print("Old file moved to trash.")
                     orig_file_name = os.path.split(orig_path)[1]
 
-                    os.rename(orig_path, f"{expanduser('~')}/.Trash/{orig_file_name}")
+                    trash_path = f"{expanduser('~')}/.Trash/{orig_file_name}"
+                    if isfile(trash_path):  # if file with same name already in trash,
+                        # delete it to avoid PermissionError: [Errno 1] Operation not
+                        # permitted
+                        os.remove(trash_path)
+                    os.rename(orig_path, trash_path)
                 else:
                     print("Old file deleted.")
 

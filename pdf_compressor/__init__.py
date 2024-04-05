@@ -1,7 +1,7 @@
 from importlib.metadata import PackageNotFoundError, version
 
 from pdf_compressor.ilovepdf import Compress, ILovePDF, Task
-from pdf_compressor.main import DEFAULT_SUFFIX, main
+from pdf_compressor.main import DEFAULT_SUFFIX, compress, main
 from pdf_compressor.utils import si_fmt
 
 try:

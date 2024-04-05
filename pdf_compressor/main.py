@@ -5,7 +5,7 @@ import re
 from argparse import ArgumentParser
 from glob import glob
 from importlib.metadata import version
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from pdf_compressor.ilovepdf import Compress, ILovePDF
 from pdf_compressor.utils import ROOT, del_or_keep_compressed, load_dotenv
@@ -14,6 +14,12 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 DEFAULT_SUFFIX = "-compressed"
+API_KEY_KEY = "ILOVEPDF_PUBLIC_KEY"
+MISSING_API_KEY_ERR = KeyError(
+    "pdf-compressor needs an iLovePDF public key to access its API. Set one "
+    "with pdf-compressor --set-api-key project_public_7af905e... or as environment "
+    f"variable {API_KEY_KEY}"
+)
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -110,7 +116,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
 
     parser.add_argument(
-        "--write-stats",
+        "--write-stats-path",
         type=str,
         default="",
         help="File path to write a CSV, Excel or other pandas supported file format "
@@ -123,24 +129,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    if api_key := args.set_api_key:
-        if not api_key.startswith("project_public_"):
+    if new_key := args.set_api_key:
+        if not new_key.startswith("project_public_"):
             raise ValueError(
-                f"invalid API key, must start with 'project_public_', got {api_key=}"
+                f"invalid API key, must start with 'project_public_', got {new_key=}"
             )
 
         with open(f"{ROOT}/.env", "w+", encoding="utf8") as file:
-            file.write(f"ILOVEPDF_PUBLIC_KEY={api_key}\n")
+            file.write(f"ILOVEPDF_PUBLIC_KEY={new_key}\n")
 
         return 0
 
     load_dotenv()
-
-    if not (api_key := os.environ["ILOVEPDF_PUBLIC_KEY"]):
-        raise ValueError(
-            "pdf-compressor needs an iLovePDF public key to access its API. Set one "
-            "with pdf-compressor --set-api-key project_public_7af905e..."
-        )
+    if not (api_key := os.environ[API_KEY_KEY]):
+        raise MISSING_API_KEY_ERR
 
     if args.report_quota:
         remaining_files = ILovePDF(api_key).get_quota()
@@ -149,14 +151,60 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         return 0
 
-    if not (args.inplace or args.suffix):
+    return compress(**vars(args))
+
+
+def compress(
+    filenames: Sequence[str],
+    inplace: bool = False,
+    suffix: str = DEFAULT_SUFFIX,
+    compression_level: str = "recommended",
+    min_size_reduction: int | None = None,
+    debug: bool = False,
+    verbose: bool = False,
+    on_no_files: str = "ignore",
+    on_bad_files: str = "error",
+    write_stats_path: str = "",
+    **kwargs: Any,  # noqa: ARG001
+) -> int:
+    """Compress PDFs using iLovePDF's API.
+
+    Args:
+        filenames (list[str]): List of PDF files to compress.
+        inplace (bool): Whether to compress PDFs in place.
+        suffix (str): String to append to the filename of compressed PDFs.
+        compression_level (str): How hard to squeeze the file size.
+        min_size_reduction (int): How much compressed files need to be smaller than
+            originals (in percent) for them to be kept.
+        debug (bool): When true, iLovePDF won't process the request but will output the
+            parameters received by the server.
+        verbose (bool): When true, progress will be reported while tasks are running.
+        on_no_files (str): What to do when no input PDFs received.
+        on_bad_files (str): How to behave when receiving input files that don't appear
+            to be PDFs.
+        write_stats_path (str): File path to write a CSV, Excel or other pandas
+            supported file format with original vs compressed file sizes and actions
+            taken on each input file
+        **kwargs: Additional keywords are ignored.
+
+    Returns:
+        int: 0 if successful, else error code.
+    """
+    if min_size_reduction is None:
+        min_size_reduction = 10 if inplace else 0
+
+    load_dotenv()
+    if not (api_key := os.environ[API_KEY_KEY]):
+        raise MISSING_API_KEY_ERR
+
+    if not (inplace or suffix):
         raise ValueError(
             "Files must either be compressed in-place (--inplace) or you must specify a"
             " non-empty suffix to append to the name of compressed files."
         )
 
     # use set() to ensure no duplicate files
-    files: list[str] = sorted({f.replace("\\", "/").strip() for f in args.filenames})
+    files: list[str] = sorted({fn.replace("\\", "/").strip() for fn in filenames})
     # for each directory received glob for all PDFs in it
     for filepath in files:
         if os.path.isdir(filepath):
@@ -166,30 +214,30 @@ def main(argv: Sequence[str] | None = None) -> int:
     pdfs = [f for f in files if re.match(r".*\.pdf[ax]?\s*$", f.lower())]
     not_pdfs = {*files} - {*pdfs}
 
-    if args.on_bad_files == "error" and len(not_pdfs) > 0:
+    if on_bad_files == "error" and len(not_pdfs) > 0:
         raise ValueError(
             f"Input files must be PDFs, got {len(not_pdfs):,} files with unexpected "
             f"extension: {', '.join(not_pdfs)}"
         )
-    if args.on_bad_files == "warn" and len(not_pdfs) > 0:
+    if on_bad_files == "warn" and len(not_pdfs) > 0:
         print(
             f"Warning: Got {len(not_pdfs):,} input files without '.pdf' "
             f"extension: {', '.join(not_pdfs)}"
         )
 
-    if args.verbose:
+    if verbose:
         if len(pdfs) > 0:
             print(f"PDFs to be compressed with iLovePDF: {len(pdfs):,}")
         else:
             print("Nothing to do: received no input PDF files.")
 
     if len(pdfs) == 0:
-        if args.on_no_files == "error":
+        if on_no_files == "error":
             raise ValueError("No input files provided")
         return 0
 
-    task = Compress(api_key, compression_level=args.compression_level, debug=args.debug)
-    task.verbose = args.verbose
+    task = Compress(api_key, compression_level=compression_level, debug=debug)
+    task.verbose = verbose
 
     for pdf in pdfs:
         task.add_file(pdf)
@@ -200,14 +248,14 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     task.delete_current_task()
 
-    min_size_red = args.min_size_reduction or (10 if args.inplace else 0)
+    min_size_red = min_size_reduction or (10 if inplace else 0)
 
-    if not args.debug:
+    if not debug:
         stats = del_or_keep_compressed(
-            pdfs, downloaded_file, args.inplace, args.suffix, min_size_red, args.verbose
+            pdfs, downloaded_file, inplace, suffix, min_size_red, verbose
         )
 
-    if args.write_stats:
+    if write_stats_path:
         try:
             import pandas as pd
         except ImportError:
@@ -216,16 +264,16 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         df_stats = pd.DataFrame(stats).T
         df_stats.index.name = "file"
-        stats_path = args.write_stats.strip().lower()
+        stats_path_lower = write_stats_path.strip().lower()
 
-        if ".csv" in stats_path:
-            df_stats.to_csv(args.write_stats, float_format="%.4f")
-        elif ".xlsx" in stats_path or ".xls" in stats_path:
-            df_stats.to_excel(args.write_stats, float_format="%.4f")
-        elif ".json" in stats_path:
-            df_stats.to_json(args.write_stats)
-        elif ".html" in stats_path:
-            df_stats.to_html(args.write_stats, float_format="%.4f")
+        if ".csv" in stats_path_lower:
+            df_stats.to_csv(write_stats_path, float_format="%.4f")
+        elif ".xlsx" in stats_path_lower or ".xls" in stats_path_lower:
+            df_stats.to_excel(write_stats_path, float_format="%.4f")
+        elif ".json" in stats_path_lower:
+            df_stats.to_json(write_stats_path)
+        elif ".html" in stats_path_lower:
+            df_stats.to_html(write_stats_path, float_format="%.4f")
 
     return 0
 

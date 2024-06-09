@@ -29,7 +29,7 @@ class ProcessResponse(TypedDict):
 class ILovePDF:
     """Communicates with the iLovePDF API."""
 
-    def __init__(self, public_key: str, debug: bool = False) -> None:
+    def __init__(self, public_key: str, *, debug: bool = False) -> None:
         """Creates a new iLovePDF object to interact with the API.
 
         Args:
@@ -74,6 +74,7 @@ class ILovePDF:
         self,
         method: Literal["get", "post", "delete"],
         endpoint: str,
+        *,
         payload: dict[str, Any] | None = None,
         files: dict[str, BinaryIO] | None = None,
         stream: bool = False,
@@ -108,7 +109,7 @@ class Task(ILovePDF):
     """
 
     def __init__(
-        self, public_key: str, tool: str, verbose: bool = False, **kwargs: Any
+        self, public_key: str, tool: str, *, verbose: bool = False, **kwargs: Any
     ) -> None:
         """Creates a new task object to interact with the API.
 

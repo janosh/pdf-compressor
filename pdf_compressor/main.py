@@ -156,6 +156,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 def compress(
     filenames: Sequence[str],
+    *,
     inplace: bool = False,
     suffix: str = DEFAULT_SUFFIX,
     compression_level: str = "recommended",
@@ -209,7 +210,7 @@ def compress(
     for filepath in files:
         if os.path.isdir(filepath):
             files.remove(filepath)
-            files.extend(glob(os.path.join(filepath, "**", "*.pdf*"), recursive=True))
+            files += glob(os.path.join(filepath, "**", "*.pdf*"), recursive=True)  # noqa: B909
     # match files case insensitively ending with .pdf(,a,x) and possible white space
     pdfs = [f for f in files if re.match(r".*\.pdf[ax]?\s*$", f.lower())]
     not_pdfs = {*files} - {*pdfs}
@@ -252,12 +253,17 @@ def compress(
 
     if not debug:
         stats = del_or_keep_compressed(
-            pdfs, downloaded_file, inplace, suffix, min_size_red, verbose
+            pdfs,
+            downloaded_file,
+            inplace=inplace,
+            suffix=suffix,
+            min_size_reduction=min_size_red,
+            verbose=verbose,
         )
 
     if write_stats_path:
         try:
-            import pandas as pd
+            import pandas as pd  # noqa: PLC0415
         except ImportError:
             err_msg = "To write stats to file, install pandas: pip install pandas"
             raise ImportError(err_msg) from None

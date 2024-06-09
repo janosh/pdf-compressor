@@ -64,8 +64,6 @@ ignore = [
     "D104",    # Missing docstring in public package
     "D205",    # 1 blank line required between summary line and description
     "EM",      # Exception must not use a string literal
-    "FBT001",  # Boolean-typed positional argument
-    "FBT002",  # Boolean-default positional argument
     "PLR0912", # too many branches
     "PLR0913", # too many arguments
     "PLR0915", # too many statements

@@ -156,6 +156,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 def compress(
     filenames: Sequence[str],
+    *,
     inplace: bool = False,
     suffix: str = DEFAULT_SUFFIX,
     compression_level: str = "recommended",
@@ -252,7 +253,12 @@ def compress(
 
     if not debug:
         stats = del_or_keep_compressed(
-            pdfs, downloaded_file, inplace, suffix, min_size_red, verbose
+            pdfs,
+            downloaded_file,
+            inplace=inplace,
+            suffix=suffix,
+            min_size_reduction=min_size_red,
+            verbose=verbose,
         )
 
     if write_stats_path:

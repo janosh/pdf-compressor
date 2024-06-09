@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 ROOT = dirname(dirname(abspath(__file__)))
 
 
-def si_fmt(val: float, binary: bool = True, fmt: str = ".1f", sep: str = "") -> str:
+def si_fmt(val: float, *, binary: bool = True, fmt: str = ".1f", sep: str = "") -> str:
     """Convert large numbers into human readable format using SI prefixes in binary
     (1024) or metric (1000) mode.
 
@@ -75,6 +75,7 @@ def load_dotenv(filepath: str | None = None) -> None:
 def del_or_keep_compressed(
     pdfs: Sequence[str],
     downloaded_file: str,
+    *,
     inplace: bool,
     suffix: str,
     min_size_reduction: int,

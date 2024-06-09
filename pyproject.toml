@@ -57,21 +57,23 @@ target-version = "py39"
 select = ["ALL"]
 ignore = [
     "ANN101",
-    "ANN401", # Dynamically typed expressions (typing.Any) are disallowed in `**kwargs
-    "C901",   # Function is too complex
+    "ANN401",  # Dynamically typed expressions (typing.Any) are disallowed in `**kwargs
+    "C901",    # Function is too complex
     "COM",
-    "D100",   # Missing docstring in public module
-    "D104",   # Missing docstring in public package
-    "D205",   # 1 blank line required between summary line and description
-    "EM",     # Exception must not use a string literal
-    "FBT001", # Boolean-typed positional argument
-    "FBT002", # Boolean-default positional argument
-    "PLR",    # pylint refactor
-    "PT013",  # pytest-incorrect-pytest-import
-    "PTH",    # Prefer pathlib over os.path
-    "SIM105", # Use contextlib.suppress(FileNotFoundError) instead of try-except-pass
-    "T201",   # print found
-    "TRY003", # Avoid specifying long messages outside the exception class
+    "D100",    # Missing docstring in public module
+    "D104",    # Missing docstring in public package
+    "D205",    # 1 blank line required between summary line and description
+    "EM",      # Exception must not use a string literal
+    "FBT001",  # Boolean-typed positional argument
+    "FBT002",  # Boolean-default positional argument
+    "PLR0912", # too many branches
+    "PLR0913", # too many arguments
+    "PLR0915", # too many statements
+    "PT013",   # pytest-incorrect-pytest-import
+    "PTH",     # Prefer pathlib over os.path
+    "SIM105",  # Use contextlib.suppress(FileNotFoundError) instead of try-except-pass
+    "T201",    # print found
+    "TRY003",  # Avoid specifying long messages outside the exception class
 ]
 pydocstyle.convention = "google"
 isort.split-on-trailing-comma = false

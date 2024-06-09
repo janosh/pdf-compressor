@@ -141,9 +141,8 @@ def del_or_keep_compressed(
             )
 
             if inplace:
-                # move original PDF to trash on macOS (for later retrieval if necessary)
-                # simply let os.rename() overwrite existing PDF on other platforms
                 if sys.platform == "darwin":
+                    # move original PDF to trash on macOS, for later retrieval if needed
                     print("Old file moved to trash.")
                     orig_file_name = os.path.split(orig_path)[1]
 
@@ -154,6 +153,8 @@ def del_or_keep_compressed(
                         os.remove(trash_path)
                     os.rename(orig_path, trash_path)
                 else:
+                    # on other platforms, simply let shutil.move() below overwrite
+                    # existing PDF
                     print("Old file deleted.")
 
                 # don't use os.(rename|replace)() on Windows, both error if src and
@@ -195,7 +196,8 @@ def del_or_keep_compressed(
 
     # print overall size reduction if >= 2 file
     overall_reduction = total_orig_size - total_compressed_size
-    if n_files > 2 and overall_reduction > 0:
+    show_summary_above_n_files = 2
+    if n_files > show_summary_above_n_files and overall_reduction > 0:
         print(
             f"Overall size reduction in {n_files} files: {si_fmt(overall_reduction)}B, "
             f"from {si_fmt(total_orig_size)}B to {si_fmt(total_compressed_size)}B"

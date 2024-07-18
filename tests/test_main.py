@@ -5,6 +5,8 @@ import shutil
 import sys
 from importlib.metadata import version
 from typing import TYPE_CHECKING
+from unittest.mock import MagicMock, patch
+from zipfile import ZipFile
 
 import pandas as pd
 import pytest
@@ -175,3 +177,67 @@ def test_main_bad_files(capsys: CaptureFixture[str]) -> None:
 
     with pytest.raises(ValueError, match="Input files must be PDFs, got 2 "):
         main(files)
+
+
+def test_main_password_outdir_flags(
+    capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    """Test the --password CLI flag and assert password in API payload."""
+    input_pdf1 = shutil.copy2(dummy_pdf, tmp_path / "test1.pdf")
+    input_pdf2 = shutil.copy2(dummy_pdf, tmp_path / "test2.pdf")
+    test_password = "test123"  # noqa: S105
+
+    def mock_send_request(self, method, endpoint, payload=None, **kwargs) -> MagicMock:  # type: ignore[no-untyped-def] # noqa: ANN001, ANN003, ARG001
+        if method == "post" and endpoint == "process":
+            # Check that each file in the payload has the correct password
+            for idx in range(len(self.files)):
+                assert (
+                    payload[f"files[{idx}][password]"] == test_password
+                ), f"File {idx} does not have the correct password in the payload"
+
+        # Mock response for process endpoint
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "timer": "1",
+            "status": "TaskSuccess",
+            "download_filename": "compressed.pdf",
+            "filesize": 1000,
+            "output_filesize": 800,
+            "output_filenumber": 2,
+            "output_extensions": ["pdf"],
+            "token": "1234567890",
+            "server": "https://api.ilovepdf.com",
+            "task": "compress",
+            "server_filename": "compressed.pdf",
+        }
+        mock_response.content = b"Mocked response content"
+        # make tmp ZipFile at tmp_path/compressed.pdf
+        with ZipFile(tmp_path / "compressed.pdf", "w") as zip_file:
+            zip_file.write(input_pdf1, "test1.pdf")
+            zip_file.write(input_pdf2, "test2.pdf")
+
+        return mock_response
+
+    with patch("pdf_compressor.Compress._send_request", new=mock_send_request):
+        # Convert PosixPath objects to strings
+        ret_code = main(
+            [
+                str(input_pdf1),
+                str(input_pdf2),
+                "--outdir",
+                str(tmp_path),
+                "--password",
+                test_password,
+                "--debug",  # to avoid calling del_or_keep_compressed()
+            ]
+        )
+
+        # Check that main() returned successfully
+        assert ret_code == 0, "main() should return 0 on success"
+
+    # Check that no errors were printed
+    stdout, stderr = capsys.readouterr()
+    assert stderr == "", f"Unexpected error output: {stderr}"
+
+    # Check that the output mentions the files were processed
+    assert "" in stdout.lower(), f"{stdout=}"

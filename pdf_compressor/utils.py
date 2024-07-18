@@ -103,7 +103,7 @@ def del_or_keep_compressed(
     """
     if (n_files := len(pdfs)) == 1:
         compressed_files = [downloaded_file]
-    else:
+    else:  # if multiple files were uploaded, downloaded_file is a ZIP archive
         with ZipFile(downloaded_file) as archive:
             # sort compressed_files since pdfs were also sorted
             compressed_files = sorted(archive.namelist())

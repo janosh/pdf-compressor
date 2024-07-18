@@ -216,34 +216,37 @@ def compress(
         )
 
     # use set() to ensure no duplicate files
-    files: list[str] = sorted({fn.replace("\\", "/").strip() for fn in filenames})
+    uniq_files: list[str] = sorted({fn.replace("\\", "/").strip() for fn in filenames})
     # for each directory received glob for all PDFs in it
-    for filepath in files:
-        if os.path.isdir(filepath):
-            files.remove(filepath)
-            files += glob(os.path.join(filepath, "**", "*.pdf*"), recursive=True)  # noqa: B909
-    # match files case insensitively ending with .pdf(,a,x) and possible white space
-    pdfs = [f for f in files if re.match(r".*\.pdf[ax]?\s*$", f.lower())]
-    not_pdfs = {*files} - {*pdfs}
+    file_paths = []
+    for file_path in uniq_files:
+        if os.path.isdir(file_path):
+            file_paths += glob(os.path.join(file_path, "**", "*.pdf*"), recursive=True)
+        else:
+            file_paths += [file_path]
 
-    if on_bad_files == "error" and len(not_pdfs) > 0:
+    # match files case insensitively ending with .pdf(,a,x) and possible white space
+    pdf_paths = [f for f in file_paths if re.match(r".*\.pdf[ax]?\s*$", f.lower())]
+    not_pdf_paths = {*file_paths} - {*pdf_paths}
+
+    if on_bad_files == "error" and len(not_pdf_paths) > 0:
         raise ValueError(
-            f"Input files must be PDFs, got {len(not_pdfs):,} files with unexpected "
-            f"extension: {', '.join(not_pdfs)}"
+            f"Input files must be PDFs, got {len(not_pdf_paths):,} files with "
+            f"unexpected extension: {', '.join(not_pdf_paths)}"
         )
-    if on_bad_files == "warn" and len(not_pdfs) > 0:
+    if on_bad_files == "warn" and len(not_pdf_paths) > 0:
         print(
-            f"Warning: Got {len(not_pdfs):,} input files without '.pdf' "
-            f"extension: {', '.join(not_pdfs)}"
+            f"Warning: Got {len(not_pdf_paths):,} input files without '.pdf' "
+            f"extension: {', '.join(not_pdf_paths)}"
         )
 
     if verbose:
-        if len(pdfs) > 0:
-            print(f"PDFs to be compressed with iLovePDF: {len(pdfs):,}")
+        if len(pdf_paths) > 0:
+            print(f"PDFs to be compressed with iLovePDF: {len(pdf_paths):,}")
         else:
             print("Nothing to do: received no input PDF files.")
 
-    if len(pdfs) == 0:
+    if len(pdf_paths) == 0:
         if on_no_files == "error":
             raise ValueError("No input files provided")
         return 0
@@ -253,7 +256,7 @@ def compress(
     )
     task.verbose = verbose
 
-    for pdf in pdfs:
+    for pdf in pdf_paths:
         task.add_file(pdf)
 
     task.process()
@@ -266,7 +269,7 @@ def compress(
 
     if not debug:
         stats = del_or_keep_compressed(
-            pdfs,
+            pdf_paths,
             downloaded_file,
             inplace=inplace,
             suffix=suffix,

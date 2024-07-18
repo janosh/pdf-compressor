@@ -271,7 +271,7 @@ class Task(ILovePDF):
 
         response = self._send_request("get", endpoint, stream=True)
 
-        if not save_to_dir:  # save_to_dir is None or ''
+        if save_to_dir is None:  # save_to_dir is None or ''
             save_to_dir = tempfile.mkdtemp()
 
         file_path = os.path.join(

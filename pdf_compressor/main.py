@@ -52,6 +52,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         help="Whether to compress PDFs in place. Defaults to False.",
     )
+    parser.add_argument(
+        "-o",
+        "--outdir",
+        type=str,
+        default="",
+        help="Output directory for compressed PDFs. Defaults to the current working "
+        "directory.",
+    )
 
     group.add_argument(
         "-s",
@@ -165,6 +173,7 @@ def compress(
     filenames: Sequence[str],
     *,
     inplace: bool = False,
+    outdir: str = "",
     suffix: str = DEFAULT_SUFFIX,
     compression_level: str = "recommended",
     min_size_reduction: int | None = None,
@@ -181,6 +190,8 @@ def compress(
     Args:
         filenames (list[str]): List of PDF files to compress.
         inplace (bool): Whether to compress PDFs in place.
+        outdir (str): Output directory for compressed PDFs. Defaults to the current
+            working directory.
         suffix (str): String to append to the filename of compressed PDFs.
         compression_level (str): How hard to squeeze the file size.
         min_size_reduction (int): How much compressed files need to be smaller than
@@ -261,7 +272,7 @@ def compress(
 
     task.process()
 
-    downloaded_file = task.download()
+    downloaded_file = task.download(save_to_dir=outdir)
 
     task.delete_current_task()
 

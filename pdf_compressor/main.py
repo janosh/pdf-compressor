@@ -37,6 +37,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         "immediately afterwards ignoring all other flags.",
     )
 
+    parser.add_argument(
+        "--password",
+        type=str,
+        default="",
+        help="Password for protected PDF files. All files will use the same password. "
+        "Protected PDFs with different passwords must be compressed one by one.",
+    )
     group = parser.add_mutually_exclusive_group()
 
     group.add_argument(
@@ -166,6 +173,7 @@ def compress(
     on_no_files: str = "ignore",
     on_bad_files: str = "error",
     write_stats_path: str = "",
+    password: str = "",
     **kwargs: Any,  # noqa: ARG001
 ) -> int:
     """Compress PDFs using iLovePDF's API.
@@ -186,6 +194,9 @@ def compress(
         write_stats_path (str): File path to write a CSV, Excel or other pandas
             supported file format with original vs compressed file sizes and actions
             taken on each input file
+        password (str): Password to open PDFs in case they have one. Defaults to "".
+            TODO There's currently no way of passing different passwords for different
+            files. PDFs with different passwords must be compressed one by one.
         **kwargs: Additional keywords are ignored.
 
     Returns:
@@ -237,7 +248,9 @@ def compress(
             raise ValueError("No input files provided")
         return 0
 
-    task = Compress(api_key, compression_level=compression_level, debug=debug)
+    task = Compress(
+        api_key, compression_level=compression_level, debug=debug, password=password
+    )
     task.verbose = verbose
 
     for pdf in pdfs:

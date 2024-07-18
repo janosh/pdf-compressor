@@ -109,7 +109,13 @@ class Task(ILovePDF):
     """
 
     def __init__(
-        self, public_key: str, tool: str, *, verbose: bool = False, **kwargs: Any
+        self,
+        public_key: str,
+        tool: str,
+        *,
+        verbose: bool = False,
+        password: str = "",
+        **kwargs: Any,
     ) -> None:
         """Creates a new task object to interact with the API.
 
@@ -122,6 +128,8 @@ class Task(ILovePDF):
                 https://developer.ilovepdf.com/docs/api-reference#process.
             verbose (bool, optional): Whether to print progress messages while uploading
                 and processing files. Defaults to False.
+            password (str, optional): Password to open PDFs in case they have one.
+                Defaults to "".
             **kwargs: Additional keyword arguments to pass to ILovePDF.__init__().
         """
         super().__init__(public_key, **kwargs)
@@ -132,6 +140,7 @@ class Task(ILovePDF):
 
         self.verbose = verbose
         self.tool = tool
+        self.password = password
 
         # API options https://developer.ilovepdf.com/docs/api-reference#process
         # placeholders like {app}, {n}, {filename} in output/packaged_filename will be
@@ -221,6 +230,7 @@ class Task(ILovePDF):
         for idx, (filename, server_filename) in enumerate(self.files.items()):
             payload[f"files[{idx}][filename]"] = filename
             payload[f"files[{idx}][server_filename]"] = server_filename
+            payload[f"files[{idx}][password]"] = self.password
 
         response: ProcessResponse = self._send_request(
             "post", "process", payload=payload

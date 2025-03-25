@@ -23,7 +23,17 @@ MISSING_API_KEY_ERR = KeyError(
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    """Compress PDFs using iLovePDF's API."""
+    """Compress PDFs using iLovePDF's API.
+
+    Args:
+        argv (Sequence[str] | None): Command line arguments.
+
+    Returns:
+        int: 0 if successful, else error code.
+
+    Raises:
+        ValueError: If the API key is invalid.
+    """
     parser = ArgumentParser(
         description="Batch compress PDFs on the command line. Powered by iLovePDF.com.",
         allow_abbrev=False,
@@ -212,6 +222,10 @@ def compress(
 
     Returns:
         int: 0 if successful, else error code.
+
+    Raises:
+        ImportError: If pandas is not installed.
+        ValueError: If the API key is invalid.
     """
     if min_size_reduction is None:
         min_size_reduction = 10 if inplace else 0

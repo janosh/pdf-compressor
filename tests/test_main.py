@@ -191,9 +191,9 @@ def test_main_password_outdir_flags(
         if method == "post" and endpoint == "process":
             # Check that each file in the payload has the correct password
             for idx in range(len(self.files)):
-                assert (
-                    payload[f"files[{idx}][password]"] == test_password
-                ), f"File {idx} does not have the correct password in the payload"
+                assert payload[f"files[{idx}][password]"] == test_password, (
+                    f"File {idx} does not have the correct password in the payload"
+                )
 
         # Mock response for process endpoint
         mock_response = MagicMock()

@@ -61,10 +61,11 @@ class ILovePDF:
         self.headers = {"Authorization": f"Bearer {response.json()['token']}"}
 
     def get_quota(self) -> int:
-        """Get the number of remaining files that can be processed by the API in the
-        current billing cycle.
+        """Response has only one key: {'remaining_files': int}.
 
-        Response has only one key: {'remaining_files': int}.
+        Returns:
+            int: Number of remaining files that can be processed by the API in the
+                current billing cycle.
         """
         response = json.loads(self._send_request("get", "info").text)
 
@@ -218,6 +219,9 @@ class Task(ILovePDF):
 
         Returns:
             ProcessResponse: The post-processing JSON response.
+
+        Raises:
+            ValueError: If the task ID is invalid.
         """
         if self.verbose:
             print("Uploading file(s)...")
@@ -326,6 +330,9 @@ class Compress(Task):
             compression_level (str, optional): How hard to squeeze the file size.
                 'extreme' noticeably degrades image quality. Defaults to 'recommended'.
             **kwargs: Additional keyword arguments to pass to Task.__init__().
+
+        Raises:
+            ValueError: If the compression level is invalid.
         """
         super().__init__(public_key, tool="compress", **kwargs)
 

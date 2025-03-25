@@ -56,7 +56,6 @@ target-version = "py39"
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
-    "ANN101",
     "ANN401",  # Dynamically typed expressions (typing.Any) are disallowed in `**kwargs
     "C901",    # Function is too complex
     "COM",

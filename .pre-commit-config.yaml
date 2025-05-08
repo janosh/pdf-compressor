@@ -1,5 +1,6 @@
 ci:
   autoupdate_schedule: quarterly
+  skip: [ty]
 
 default_stages: [pre-commit]
 
@@ -7,7 +8,7 @@ default_install_hook_types: [pre-commit, commit-msg]
 
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.2
+    rev: v0.11.8
     hooks:
       - id: ruff
         args: [--fix]
@@ -36,3 +37,15 @@ repos:
       - id: codespell
         stages: [pre-commit, commit-msg]
         args: [--check-filenames]
+
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.32.0
+    hooks:
+      - id: typos
+
+  - repo: local
+    hooks:
+      - id: ty
+        name: ty check
+        entry: ty check .
+        language: python

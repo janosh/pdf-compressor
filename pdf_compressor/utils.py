@@ -35,6 +35,7 @@ def si_fmt(val: float, *, binary: bool = True, fmt: str = ".1f", sep: str = "") 
         str: Formatted number.
     """
     factor = 1024 if binary else 1000
+    _scale = ""
 
     if abs(val) >= 1:
         # 1, Kilo, Mega, Giga, Tera, Peta, Exa, Zetta, Yotta
@@ -100,7 +101,7 @@ def del_or_keep_compressed(
 
     Returns:
         pd.DataFrame: Table with original and compressed file sizes.
-    """
+    """  # noqa: DOC501
     if (n_files := len(pdfs)) == 1:
         compressed_files = [downloaded_file]
     else:  # if multiple files were uploaded, downloaded_file is a ZIP archive
@@ -171,6 +172,8 @@ def del_or_keep_compressed(
                 shutil.move(compressed_path, new_path)
                 action = f"saved as {basename(new_path)}"
 
+            else:
+                raise RuntimeError("This case should be not be reached")
         else:
             not_enough_reduction = "no" if diff == 0 else f"only {diff / orig_size:.1%}"
             print(
@@ -192,7 +195,7 @@ def del_or_keep_compressed(
     for filename in (*compressed_files, downloaded_file):
         try:
             os.remove(filename)
-        except OSError:  # noqa: PERF203
+        except OSError:
             pass
 
     # print overall size reduction if >= 2 file

@@ -4,7 +4,7 @@ import os
 import shutil
 import sys
 from importlib.metadata import version
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, patch
 from zipfile import ZipFile
 
@@ -18,6 +18,8 @@ from pdf_compressor.utils import load_dotenv
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from pdf_compressor.ilovepdf import Task
 
 dummy_pdf = "assets/dummy.pdf"
 compressed_pdf = f"dummy{DEFAULT_SUFFIX}.pdf"
@@ -187,8 +189,14 @@ def test_main_password_outdir_flags(
     input_pdf2 = shutil.copy2(dummy_pdf, tmp_path / "test2.pdf")
     test_password = "test123"  # noqa: S105
 
-    def mock_send_request(self, method, endpoint, payload=None, **kwargs) -> MagicMock:  # type: ignore[no-untyped-def] # noqa: ANN001, ANN003, ARG001
-        if method == "post" and endpoint == "process":
+    def mock_send_request(
+        self: Task,
+        method: str,
+        endpoint: str,
+        payload: dict[str, Any] | None = None,
+        **_kwargs: Any,
+    ) -> MagicMock:
+        if method == "post" and endpoint == "process" and payload is not None:
             # Check that each file in the payload has the correct password
             for idx in range(len(self.files)):
                 assert payload[f"files[{idx}][password]"] == test_password, (
@@ -206,7 +214,7 @@ def test_main_password_outdir_flags(
             "output_filenumber": 2,
             "output_extensions": ["pdf"],
             "token": "1234567890",
-            "server": "https://api.ilovepdf.com",
+            "server": "https://iloveapi.com",
             "task": "compress",
             "server_filename": "compressed.pdf",
         }

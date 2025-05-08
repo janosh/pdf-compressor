@@ -152,7 +152,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument(
         "-v", "--version", action="version", version=f"{pkg_name} v{pkg_version}"
     )
-    args = parser.parse_args(argv)
+    args, _unknown_args = parser.parse_known_args(argv)
 
     if new_key := args.set_api_key:
         if not new_key.startswith("project_public_"):
@@ -170,13 +170,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise MISSING_API_KEY_ERR
 
     if args.report_quota:
-        remaining_files = ILovePDF(api_key).get_quota()
+        remaining_credits = ILovePDF(api_key).get_quota()
 
-        print(f"Remaining files in this billing cycle: {remaining_files:,}")
+        print(f"Remaining files in this billing cycle: {remaining_credits:,}")
 
         return 0
 
-    return compress(**vars(args))
+    return compress(**vars(args))  # ty: ignore[missing-argument]
 
 
 def compress(
@@ -292,7 +292,9 @@ def compress(
 
     min_size_red = min_size_reduction or (10 if inplace else 0)
 
-    if not debug:
+    if debug:
+        stats = {}
+    else:
         stats = del_or_keep_compressed(
             pdf_paths,
             downloaded_file,

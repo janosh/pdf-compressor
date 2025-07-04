@@ -160,7 +160,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 f"invalid API key, must start with 'project_public_', got {new_key=}"
             )
 
-        with open(f"{ROOT}/.env", "w+", encoding="utf8") as file:
+        with open(f"{ROOT}/.env", mode="w+", encoding="utf8") as file:
             file.write(f"ILOVEPDF_PUBLIC_KEY={new_key}\n")
 
         return 0

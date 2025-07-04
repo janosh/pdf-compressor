@@ -291,7 +291,7 @@ class Task(ILovePDF):
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
         # response.content is PDF file or ZIP archive, either way, we save as binary
-        with open(file_path, "wb") as file:
+        with open(file_path, mode="wb") as file:
             file.write(response.content)
 
         return file_path

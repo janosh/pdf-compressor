@@ -220,7 +220,7 @@ def test_main_password_outdir_flags(
         }
         mock_response.content = b"Mocked response content"
         # make tmp ZipFile at tmp_path/compressed.pdf
-        with ZipFile(tmp_path / "compressed.pdf", "w") as zip_file:
+        with ZipFile(tmp_path / "compressed.pdf", mode="w") as zip_file:
             zip_file.write(input_pdf1, "test1.pdf")
             zip_file.write(input_pdf2, "test2.pdf")
 

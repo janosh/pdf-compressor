@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=61.2"]
-build-backend = "setuptools.build_meta"
+requires = ["uv_build>=0.7.19"]
+build-backend = "uv_build"
 
 [project]
 name = "pdf-compressor"
-version = "0.3.0"
+version = "0.4.0"
 description = "CLI + Python API for batch compressing PDFs with iLovePDF.com"
 authors = [{ name = "Janosh Riebesell", email = "janosh.riebesell@gmail.com" }]
 readme = "readme.md"
@@ -33,24 +33,13 @@ stats = ["pandas"]              # needed for --write-stats-path option
 [project.scripts]
 pdf-compressor = "pdf_compressor:main"
 
-[tool.setuptools.packages]
-find = { include = ["pdf_compressor*"], exclude = ["tests*"] }
-
-[tool.distutils.bdist_wheel]
-universal = true
+[tool.uv.build-backend]
+module-name = "pdf_compressor"
+module-root = ""
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-p no:warnings"
-
-[tool.mypy]
-check_untyped_defs = true
-disallow_any_generics = true
-disallow_incomplete_defs = true
-disallow_untyped_defs = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-no_implicit_optional = false
 
 [tool.ruff]
 target-version = "py311"

@@ -35,23 +35,23 @@ def si_fmt(val: float, *, binary: bool = True, fmt: str = ".1f", sep: str = "") 
         str: Formatted number.
     """
     factor = 1024 if binary else 1000
-    _scale = ""
+    scale = ""
 
     if abs(val) >= 1:
         # 1, Kilo, Mega, Giga, Tera, Peta, Exa, Zetta, Yotta
-        for _scale in ("", "K", "M", "G", "T", "P", "E", "Z", "Y"):
+        for scale in ("", "K", "M", "G", "T", "P", "E", "Z", "Y"):  # noqa: B007
             if abs(val) < factor:
                 break
             val /= factor
     else:
         mu_unicode = "\u03bc"
         # milli, micro, nano, pico, femto, atto, zepto, yocto
-        for _scale in ("", "m", mu_unicode, "n", "p", "f", "a", "z", "y"):
+        for scale in ("", "m", mu_unicode, "n", "p", "f", "a", "z", "y"):  # noqa: B007
             if abs(val) > 1:
                 break
             val *= factor
 
-    return f"{val:{fmt}}{sep}{_scale}"
+    return f"{val:{fmt}}{sep}{scale}"
 
 
 def load_dotenv(filepath: str | None = None) -> None:

@@ -66,7 +66,7 @@ def test_main_in_place(capsys: CaptureFixture[str], tmp_path: Path) -> None:
     """Test in-place main() invocation."""
     input_pdf = shutil.copy2(dummy_pdf, tmp_path)
 
-    ret_code = main([input_pdf, "-i"])
+    ret_code = main([str(input_pdf), "-i"])
     assert ret_code == 0, "main() should return 0 on success"
     std_out, std_err = capsys.readouterr()
     if sys.platform == "darwin":
@@ -78,10 +78,10 @@ def test_main_in_place(capsys: CaptureFixture[str], tmp_path: Path) -> None:
     # repeat same operation to test if original file (after 1st compression) can
     # successfully be moved to trash (pdf-compressor should append file counter
     # since a file by that name [the original input_pdf] already exists)
-    main([input_pdf, "-i"])
+    main([str(input_pdf), "-i"])
 
     # test dropping minimum size reduction
-    main([input_pdf, "-i", "--min-size-reduction", "0"])
+    main([str(input_pdf), "-i", "--min-size-reduction", "0"])
 
 
 def test_main_dir_glob(capsys: CaptureFixture[str], tmp_path: Path) -> None:
@@ -93,7 +93,7 @@ def test_main_dir_glob(capsys: CaptureFixture[str], tmp_path: Path) -> None:
     std_out, std_err = capsys.readouterr()
     assert std_out.startswith("PDFs to be compressed with iLovePDF: 1")
     if sys.platform == "darwin":
-        assert input_pdf in std_out
+        assert str(input_pdf) in std_out
     assert std_err == ""
 
 
@@ -130,6 +130,8 @@ def test_main_report_version(capsys: CaptureFixture[str], arg: str) -> None:
     """Test CLI version flag."""
     with pytest.raises(SystemExit) as exc_info:
         main([arg])
+
+    assert isinstance(exc_info.value, SystemExit)
     assert exc_info.value.code == 0
 
     std_out, std_err = capsys.readouterr()
@@ -220,7 +222,7 @@ def test_main_password_outdir_flags(
         }
         mock_response.content = b"Mocked response content"
         # make tmp ZipFile at tmp_path/compressed.pdf
-        with ZipFile(tmp_path / "compressed.pdf", "w") as zip_file:
+        with ZipFile(tmp_path / "compressed.pdf", mode="w") as zip_file:
             zip_file.write(input_pdf1, "test1.pdf")
             zip_file.write(input_pdf2, "test2.pdf")
 

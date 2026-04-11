@@ -1,3 +1,5 @@
+"""Utility functions for file size formatting, .env loading, and PDF management."""
+
 from __future__ import annotations
 
 import os
@@ -14,9 +16,9 @@ ROOT = dirname(dirname(abspath(__file__)))
 
 
 def si_fmt(val: float, *, binary: bool = True, fmt: str = ".1f", sep: str = "") -> str:
-    """Convert large numbers into human readable format using SI prefixes in binary
-    (1024) or metric (1000) mode.
+    """Convert large numbers into human readable format using SI prefixes.
 
+    Uses binary (1024) or metric (1000) mode.
     https://nist.gov/pml/weights-and-measures/metric-si-prefixes
 
     Args:
@@ -61,7 +63,7 @@ def load_dotenv(filepath: str | None = None) -> None:
         filepath (str, optional): Path to .env file. Defaults to './.env'.
     """
     if filepath is None:
-        filepath = os.path.join(f"{ROOT}", ".env")
+        filepath = f"{ROOT}/.env"
 
     if isfile(filepath):
         with open(filepath, encoding="utf8") as dotenv:
@@ -82,9 +84,10 @@ def del_or_keep_compressed(
     min_size_reduction: int,
     verbose: bool = False,
 ) -> dict[str, dict[str, object]]:
-    """Check whether compressed PDFs are smaller than original. If so, relocate each
-    compressed file to same directory as the original either with suffix appended to
-    file name or overwriting the original if inplace=True.
+    """Check whether compressed PDFs are smaller than original and relocate if so.
+
+    Relocates each compressed file to same directory as the original either with suffix
+    appended to file name or overwriting the original if inplace=True.
 
     Args:
         pdfs (list[str]): File paths to PDFs uploaded to iLovePDF.

@@ -1,3 +1,5 @@
+"""Tests for the pdf-compressor CLI and main module."""
+
 from __future__ import annotations
 
 import os
@@ -10,7 +12,6 @@ from zipfile import ZipFile
 
 import pandas as pd
 import pytest
-from pytest import CaptureFixture
 
 from pdf_compressor import DEFAULT_SUFFIX, main
 from pdf_compressor.main import API_KEY_KEY
@@ -27,7 +28,9 @@ compressed_pdf = f"dummy{DEFAULT_SUFFIX}.pdf"
 expected_out = "'dummy.pdf': 13.0KB -> 9.6KB which is 3.4KB = 26% smaller.\n"
 
 
-def test_main_batch_compress(tmp_path: Path, capsys: CaptureFixture[str]) -> None:
+def test_main_batch_compress(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     """Test standard main() invocation batch-compressing 2 PDFs at once."""
     # include path sep to test https://github.com/janosh/pdf-compressor/issues/9
     input_pdf = f".{os.path.sep}dummy.pdf"
@@ -62,7 +65,7 @@ def test_main_batch_compress(tmp_path: Path, capsys: CaptureFixture[str]) -> Non
     assert std_err == ""
 
 
-def test_main_in_place(capsys: CaptureFixture[str], tmp_path: Path) -> None:
+def test_main_in_place(capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
     """Test in-place main() invocation."""
     input_pdf = shutil.copy2(dummy_pdf, tmp_path)
 
@@ -84,7 +87,7 @@ def test_main_in_place(capsys: CaptureFixture[str], tmp_path: Path) -> None:
     main([str(input_pdf), "-i", "--min-size-reduction", "0"])
 
 
-def test_main_dir_glob(capsys: CaptureFixture[str], tmp_path: Path) -> None:
+def test_main_dir_glob(capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
     """Test passing a directory to make sure main() recursively globs for PDFs."""
     input_pdf = shutil.copy2(dummy_pdf, tmp_path)
 
@@ -97,7 +100,7 @@ def test_main_dir_glob(capsys: CaptureFixture[str], tmp_path: Path) -> None:
     assert std_err == ""
 
 
-def test_main_report_quota(capsys: CaptureFixture[str]) -> None:
+def test_main_report_quota(capsys: pytest.CaptureFixture[str]) -> None:
     """Test CLI quota reporting."""
     main(["--report-quota"])
 
@@ -126,7 +129,7 @@ def test_main_set_api_key() -> None:
 
 
 @pytest.mark.parametrize("arg", ["-v", "--version"])
-def test_main_report_version(capsys: CaptureFixture[str], arg: str) -> None:
+def test_main_report_version(capsys: pytest.CaptureFixture[str], arg: str) -> None:
     """Test CLI version flag."""
     with pytest.raises(SystemExit) as exc_info:
         main([arg])
@@ -157,7 +160,7 @@ def test_main_error_on_no_input_files() -> None:
     assert ret_code == 0
 
 
-def test_main_bad_files(capsys: CaptureFixture[str]) -> None:
+def test_main_bad_files(capsys: pytest.CaptureFixture[str]) -> None:
     """Test bad file extensions."""
     files = ["foo.svg", "bar.pdf", "baz.png"]
 
@@ -230,24 +233,21 @@ def test_main_password_outdir_flags(
 
     with patch("pdf_compressor.Compress._send_request", new=mock_send_request):
         # Convert PosixPath objects to strings
-        ret_code = main(
-            [
-                str(input_pdf1),
-                str(input_pdf2),
-                "--outdir",
-                str(tmp_path),
-                "--password",
-                test_password,
-                "--debug",  # to avoid calling del_or_keep_compressed()
-            ]
-        )
+        args = [
+            str(input_pdf1),
+            str(input_pdf2),
+            "--outdir",
+            str(tmp_path),
+            "--password",
+            test_password,
+            "--debug",  # to avoid calling del_or_keep_compressed()
+        ]
+        ret_code = main(args)
 
         # Check that main() returned successfully
         assert ret_code == 0, "main() should return 0 on success"
 
     # Check that no errors were printed
     stdout, stderr = capsys.readouterr()
-    assert stderr == "", f"Unexpected error output: {stderr}"
-
-    # Check that the output mentions the files were processed
-    assert "" in stdout.lower(), f"{stdout=}"
+    assert stdout == ""
+    assert stderr == ""

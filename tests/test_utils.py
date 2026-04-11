@@ -1,3 +1,5 @@
+"""Tests for pdf_compressor.utils."""
+
 from __future__ import annotations
 
 from pdf_compressor.utils import si_fmt

@@ -1,3 +1,5 @@
+"""CLI entry point and main compression logic for pdf-compressor."""
+
 from __future__ import annotations
 
 import os
@@ -290,8 +292,6 @@ def compress(
 
     task.delete_current_task()
 
-    min_size_red = min_size_reduction or (10 if inplace else 0)
-
     if debug:
         stats = {}
     else:
@@ -300,7 +300,7 @@ def compress(
             downloaded_file,
             inplace=inplace,
             suffix=suffix,
-            min_size_reduction=min_size_red,
+            min_size_reduction=min_size_reduction,
             verbose=verbose,
         )
 

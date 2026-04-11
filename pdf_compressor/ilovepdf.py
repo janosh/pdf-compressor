@@ -163,8 +163,9 @@ class Task(ILovePDF):
         self.start()
 
     def start(self) -> None:
-        """Initiate contact with iLovePDF API to get assigned a working server that will
-        handle ensuing requests.
+        """Initiate contact with iLovePDF API to get assigned a working server.
+
+        The assigned server will handle ensuing requests.
         """
         response = self._send_request("get", f"start/{self.tool}").json()
 
@@ -197,8 +198,7 @@ class Task(ILovePDF):
         self.files[file_path] = ""
 
     def upload(self) -> dict[str, str]:
-        """Second step of the task is where the PDFs files to be processed are uploaded
-        to iLovePDF servers.
+        """Upload PDF files to be processed to iLovePDF servers.
 
         Returns:
             dict[str, str]: Map from local filenames to corresponding filenames on the
@@ -218,8 +218,9 @@ class Task(ILovePDF):
         return self.files
 
     def process(self) -> ProcessResponse:
-        """Uploads and then processes files added to this Task. Files will be processed
-        in the same order as iterating over self.files.items().
+        """Upload and process files added to this Task.
+
+        Files will be processed in the same order as iterating over self.files.items().
 
         Returns:
             ProcessResponse: The post-processing JSON response.
@@ -247,7 +248,7 @@ class Task(ILovePDF):
         self._process_response = response
         n_files = response["output_filenumber"]
 
-        if len(self.files) != response["output_filenumber"]:
+        if len(self.files) != n_files:
             raise ValueError(
                 f"Unexpected file count mismatch: task received {len(self.files)} files"
                 f" for processing, but only {n_files} were downloaded from server."
@@ -259,16 +260,17 @@ class Task(ILovePDF):
         return response
 
     def download(self, save_to_dir: str | None = None) -> str:
-        """Download this task's output file(s) for the given task. Should not be called
-        until after task.process(). In case of a single output file, it is saved to disk
-        as a PDF. Multiple files are saved in a compressed ZIP folder.
+        """Download this task's output file(s).
+
+        Should not be called until after task.process(). Single output files are saved
+        as PDFs. Multiple files are saved in a compressed ZIP folder.
+
+        Returns:
+            str: Path to the newly downloaded file.
 
         Raises:
             ValueError: If task.download() is called in absence of downloadable files,
                 usually because task.process() wasn't called yet.
-
-        Returns:
-            str: Path to the newly downloaded file.
         """
         if not self._process_response:
             raise ValueError(

@@ -12,6 +12,8 @@ from zipfile import ZipFile
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
+type CompressionStats = dict[str, dict[str, object]]
+
 ROOT = dirname(dirname(abspath(__file__)))
 
 
@@ -83,7 +85,7 @@ def del_or_keep_compressed(
     suffix: str,
     min_size_reduction: int,
     verbose: bool = False,
-) -> dict[str, dict[str, object]]:
+) -> CompressionStats:
     """Check whether compressed PDFs are smaller than original and relocate if so.
 
     Relocates each compressed file to same directory as the original either with suffix
@@ -103,8 +105,11 @@ def del_or_keep_compressed(
             False.
 
     Returns:
-        pd.DataFrame: Table with original and compressed file sizes.
-    """  # noqa: DOC501
+        CompressionStats: Original and compressed file size stats.
+
+    Raises:
+        RuntimeError: If called without in-place mode or suffix after validation.
+    """
     if (n_files := len(pdfs)) == 1:
         compressed_files = [downloaded_file]
     else:  # if multiple files were uploaded, downloaded_file is a ZIP archive
@@ -115,7 +120,7 @@ def del_or_keep_compressed(
 
     total_orig_size = total_compressed_size = 0
 
-    stats = {}
+    stats: CompressionStats = {}
 
     for idx, orig_path in enumerate(pdfs):
         if n_files > 1:

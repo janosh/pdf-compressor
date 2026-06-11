@@ -7,7 +7,7 @@ import re
 from argparse import ArgumentParser
 from glob import glob
 from importlib.metadata import version
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from pdf_compressor.ilovepdf import Compress, ILovePDF
 from pdf_compressor.utils import ROOT, del_or_keep_compressed, load_dotenv
@@ -178,7 +178,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         return 0
 
-    return compress(**vars(args))  # ty: ignore[missing-argument]
+    return compress(**vars(args))
 
 
 def compress(
@@ -195,7 +195,7 @@ def compress(
     on_bad_files: str = "error",
     write_stats_path: str = "",
     password: str = "",
-    **kwargs: Any,  # noqa: ARG001
+    **kwargs: object,  # noqa: ARG001
 ) -> int:
     """Compress PDFs using iLovePDF's API.
 

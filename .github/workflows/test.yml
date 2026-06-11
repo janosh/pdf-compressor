@@ -25,7 +25,7 @@ jobs:
       - name: Set up python
         uses: astral-sh/setup-uv@v6
         with:
-          python-version: 3.11
+          python-version: 3.12
 
       - name: Run tests
         run: uv run --with '.[test,stats]' pytest --durations 0 --cov .

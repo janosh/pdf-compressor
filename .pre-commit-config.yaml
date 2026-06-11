@@ -2,7 +2,7 @@ default_install_hook_types: [pre-commit, commit-msg]
 
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.10
+    rev: v0.15.16
     hooks:
       - id: ruff-check
         args: [--fix]
@@ -26,15 +26,14 @@ repos:
         args: [--check-filenames]
 
   - repo: https://github.com/crate-ci/typos
-    rev: v1.45.0
+    rev: v1.47.2
     hooks:
       - id: typos
 
-  - repo: local
+  - repo: https://github.com/astral-sh/ty-pre-commit
+    rev: v0.0.48
     hooks:
       - id: ty
-        name: ty check
-        entry: ty check
-        language: python
-        types: [python, jupyter]
-        additional_dependencies: [ty, pytest, pandas, requests]
+        args: [--isolated, --all-extras]
+        # pre-commit hook: override global UV_FROZEN=1, which would otherwise require uv.lock.
+        env: { UV_FROZEN: "0" }

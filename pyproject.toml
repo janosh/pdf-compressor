@@ -1,5 +1,5 @@
 [build-system]
-requires = ["uv_build>=0.7.19"]
+requires = ["uv_build>=0.11.20"]
 build-backend = "uv_build"
 
 [project]
@@ -13,12 +13,11 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
 ]
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dependencies = ["requests >= 2.25.0"]
 license = { file = "license" }
 
@@ -42,22 +41,16 @@ testpaths = ["tests"]
 addopts = "-p no:warnings"
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
-    "ANN001",  # missing type annotation for self
-    "ANN401",  # Dynamically typed expressions (typing.Any) are disallowed in `**kwargs
     "C901",    # Function is too complex
     "COM",
-    "CPY001",  # missing copyright
     "EM",      # Exception must not use a string literal
-    "FURB103", # open and write should be replaced by Path(file_path).write_bytes()
-    "PLC1901", # x == "" can be simplified to `not x`
     "PLR0912", # too many branches
     "PLR0913", # too many arguments
-    "PLR0914", # too many local variables
     "PLR0915", # too many statements
     "PTH",     # Prefer pathlib over os.path
     "SIM105",  # Use contextlib.suppress(FileNotFoundError) instead of try-except-pass
@@ -66,7 +59,6 @@ ignore = [
 ]
 pydocstyle.convention = "google"
 isort.split-on-trailing-comma = false
-preview = true
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]

@@ -199,7 +199,7 @@ def test_main_password_outdir_flags(
         method: str,
         endpoint: str,
         payload: dict[str, Any] | None = None,
-        **_kwargs: Any,
+        **_kwargs: object,
     ) -> MagicMock:
         if method == "post" and endpoint == "process" and payload is not None:
             # Check that each file in the payload has the correct password

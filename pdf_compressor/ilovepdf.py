@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
-from typing import Any, BinaryIO, Literal, TypedDict
+from typing import Any, BinaryIO, Literal, TypedDict, Unpack
 
 import requests
 from requests import Response
@@ -24,6 +24,19 @@ class ProcessResponse(TypedDict):
     output_filesize: int
     output_filenumber: int
     output_extensions: list[str]
+
+
+class ILovePDFOptions(TypedDict, total=False):
+    """Optional keyword arguments accepted by ILovePDF."""
+
+    debug: bool
+
+
+class TaskOptions(ILovePDFOptions, total=False):
+    """Optional keyword arguments accepted by Task."""
+
+    verbose: bool
+    password: str
 
 
 class ILovePDF:
@@ -120,7 +133,7 @@ class Task(ILovePDF):
         *,
         verbose: bool = False,
         password: str = "",
-        **kwargs: Any,
+        **kwargs: Unpack[ILovePDFOptions],
     ) -> None:
         """Creates a new task object to interact with the API.
 
@@ -326,7 +339,10 @@ class Compress(Task):
     """
 
     def __init__(
-        self, public_key: str, compression_level: str = "recommended", **kwargs: Any
+        self,
+        public_key: str,
+        compression_level: str = "recommended",
+        **kwargs: Unpack[TaskOptions],
     ) -> None:
         """Subclass of Task for using the iLovePDF compression tool.
 

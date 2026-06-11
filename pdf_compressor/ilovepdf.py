@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
-from typing import Any, BinaryIO, Literal, TypedDict, Unpack
+from typing import Any, BinaryIO, Literal, TypedDict
 
 import requests
 from requests import Response
@@ -24,19 +24,6 @@ class ProcessResponse(TypedDict):
     output_filesize: int
     output_filenumber: int
     output_extensions: list[str]
-
-
-class ILovePDFOptions(TypedDict, total=False):
-    """Optional keyword arguments accepted by ILovePDF."""
-
-    debug: bool
-
-
-class TaskOptions(ILovePDFOptions, total=False):
-    """Optional keyword arguments accepted by Task."""
-
-    verbose: bool
-    password: str
 
 
 class ILovePDF:
@@ -133,7 +120,7 @@ class Task(ILovePDF):
         *,
         verbose: bool = False,
         password: str = "",
-        **kwargs: Unpack[ILovePDFOptions],
+        debug: bool = False,
     ) -> None:
         """Creates a new task object to interact with the API.
 
@@ -148,9 +135,10 @@ class Task(ILovePDF):
                 and processing files. Defaults to False.
             password (str, optional): Password to open PDFs in case they have one.
                 Defaults to "".
-            **kwargs: Additional keyword arguments to pass to ILovePDF.__init__().
+            debug (bool, optional): Whether to ask iLovePDF for debug responses.
+                Defaults to False.
         """
-        super().__init__(public_key, **kwargs)
+        super().__init__(public_key, debug=debug)
 
         self.files: dict[str, str] = {}
         self._task_id = ""
@@ -342,7 +330,10 @@ class Compress(Task):
         self,
         public_key: str,
         compression_level: str = "recommended",
-        **kwargs: Unpack[TaskOptions],
+        *,
+        verbose: bool = False,
+        password: str = "",
+        debug: bool = False,
     ) -> None:
         """Subclass of Task for using the iLovePDF compression tool.
 
@@ -351,12 +342,19 @@ class Compress(Task):
                 https://developer.ilovepdf.com/signup.
             compression_level (str, optional): How hard to squeeze the file size.
                 'extreme' noticeably degrades image quality. Defaults to 'recommended'.
-            **kwargs: Additional keyword arguments to pass to Task.__init__().
+            verbose (bool, optional): Whether to print progress messages while uploading
+                and processing files. Defaults to False.
+            password (str, optional): Password to open PDFs in case they have one.
+                Defaults to "".
+            debug (bool, optional): Whether to ask iLovePDF for debug responses.
+                Defaults to False.
 
         Raises:
             ValueError: If the compression level is invalid.
         """
-        super().__init__(public_key, tool="compress", **kwargs)
+        super().__init__(
+            public_key, tool="compress", verbose=verbose, password=password, debug=debug
+        )
 
         if compression_level not in (valid_levels := ("low", "recommended", "extreme")):
             raise ValueError(

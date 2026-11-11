@@ -39,7 +39,7 @@ Then start compressing!
 ```sh
 pdf-compressor **/*.pdf           # writes foo-compressed.pdf next to each foo.pdf
 pdf-compressor docs/ -o out/ -s "" # all PDFs under docs/ into out/ with original names
-pdf-compressor -i report.pdf      # replace original (moved to the Trash on macOS)
+pdf-compressor -i report.pdf      # replace original (moved to the system trash)
 ```
 
 All inputs are validated (output paths, stats file type, file existence) before anything is uploaded, so typos don't cost API quota. Uploads stream from disk, up to 4 at a time, with a progress line when run in a terminal.
@@ -48,7 +48,7 @@ All inputs are validated (output paths, stats file type, file existence) before 
 
 | Flags                      | Default         | Description                                                                                                                         |
 | -------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `-i/--inplace`             | off             | Replace originals with compressed PDFs. On macOS, originals go to the Trash. Conflicts with `--suffix` and `--outdir`.              |
+| `-i/--inplace`             | off             | Replace originals with compressed PDFs. Originals go to the system trash (macOS Trash, Windows Recycle Bin, freedesktop trash on Linux). Conflicts with `--suffix` and `--outdir`.              |
 | `-s/--suffix`              | `-compressed`   | Appended to compressed file names. May be empty together with `--outdir`.                                                          |
 | `-o/--outdir`              | next to input   | Directory to write compressed PDFs into (created if missing).                                                                       |
 | `--cl/--compression-level` | `recommended`   | One of `low`, `recommended`, `extreme`. `extreme` noticeably degrades embedded bitmap images.                                       |

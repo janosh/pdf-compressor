@@ -52,6 +52,14 @@ pub fn set_api_key(key: &str) -> Result<PathBuf> {
     if let Some(dir) = path.parent() {
         fs::create_dir_all(dir).map_err(io_err(dir))?;
     }
-    fs::write(&path, format!("{key}\n")).map_err(io_err(&path))?;
+    // create empty, restrict to owner, then write: the key is never world-readable, also
+    // when overwriting a file from an older version
+    let mut file = fs::File::create(&path).map_err(io_err(&path))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        file.set_permissions(fs::Permissions::from_mode(0o600)).map_err(io_err(&path))?;
+    }
+    std::io::Write::write_all(&mut file, format!("{key}\n").as_bytes()).map_err(io_err(&path))?;
     Ok(path)
 }

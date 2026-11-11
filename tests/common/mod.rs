@@ -230,6 +230,7 @@ pub fn run_cli(home: &Path, api: Option<&MockServer>, args: &[&str]) -> Output {
     cmd.args(args)
         .env_remove("ILOVEPDF_PUBLIC_KEY")
         .env("HOME", home)
+        .env("XDG_DATA_HOME", home.join(".local/share"))
         .env("XDG_CONFIG_HOME", home.join("config"))
         .env("APPDATA", home.join("config"))
         .env("ILOVEPDF_API_URL", api.map_or("http://127.0.0.1:9", |api| api.url.as_str()));

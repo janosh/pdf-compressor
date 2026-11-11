@@ -16,6 +16,7 @@ include = ["/src", "/license", "/readme.md"]
 clap = { version = "4", features = ["derive"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+trash = "5"
 ureq = { version = "3", default-features = false, features = ["rustls", "json"] }
 zip = { version = "9", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 

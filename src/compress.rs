@@ -10,7 +10,7 @@ use crate::error::{Error, Result, io_err};
 /// Where compressed PDFs go.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Output {
-    /// Replace originals (moved to the Trash on macOS, overwritten elsewhere).
+    /// Replace originals, moving them to the system trash first.
     InPlace,
     /// Write `{stem}{suffix}.pdf` into `dir`, or next to each original if `dir` is `None`.
     Copy { dir: Option<PathBuf>, suffix: String },
@@ -33,7 +33,7 @@ pub enum Action {
     /// Compression didn't beat `min_size_reduction`, nothing was written.
     KeptOriginal,
     /// Writing the compressed file failed. The original is untouched unless the message
-    /// says it was moved to the Trash (`--inplace` on macOS).
+    /// says it was moved to the trash (`--inplace`).
     Failed(String),
 }
 
@@ -218,47 +218,40 @@ fn place(pdf: &Path, dest: &Path, bytes: &[u8], in_place: bool) -> Result<()> {
             // keep the original's permissions, e.g. a private 0600 document
             let perms = fs::metadata(pdf).map_err(io_err(pdf))?.permissions();
             fs::set_permissions(&tmp, perms).map_err(io_err(&tmp))?;
+            move_to_trash(pdf)?;
         }
-        if in_place && cfg!(target_os = "macos") {
-            return move_to_trash(pdf).map(Some);
-        }
-        Ok(None)
+        Ok(())
     });
-    let trashed = staged.inspect_err(|_| {
+    staged.inspect_err(|_| {
         let _ = fs::remove_file(&tmp); // our own temp file, may not exist
     })?;
-    fs::rename(&tmp, dest).map_err(|err| match trashed {
-        // don't delete the only remaining copy of the compressed PDF
-        Some(trashed) => Error::Input(format!(
-            "original moved to {}, but moving compressed PDF {} into place failed: {err}",
-            trashed.display(),
-            tmp.display()
-        )),
-        None => {
-            let _ = fs::remove_file(&tmp);
-            io_err(dest)(err)
+    fs::rename(&tmp, dest).map_err(|err| {
+        if in_place {
+            // don't delete the only remaining copy of the compressed PDF
+            return Error::Input(format!(
+                "original moved to the trash, but moving compressed PDF {} into place failed: {err}",
+                tmp.display()
+            ));
         }
+        let _ = fs::remove_file(&tmp);
+        io_err(dest)(err)
     })
 }
 
-/// Move a file into ~/.Trash, appending a counter if the name is taken. Returns its new path.
-fn move_to_trash(path: &Path) -> Result<PathBuf> {
-    let home = std::env::var_os("HOME").ok_or_else(|| Error::Input("HOME not set".into()))?;
-    let trash = PathBuf::from(home).join(".Trash");
-    let stem = path.file_stem().unwrap_or_default().to_string_lossy();
-    let ext = path.extension().unwrap_or_default().to_string_lossy();
-    let mut target = trash.join(path.file_name().unwrap_or_default());
-    let mut counter = 1;
-    while target.exists() {
-        counter += 1;
-        target = trash.join(format!("{stem} {counter}.{ext}"));
-    }
-    // rename fails across volumes; copy + remove handles PDFs on external drives
-    if fs::rename(path, &target).is_err() {
-        fs::copy(path, &target).map_err(io_err(&target))?;
-        fs::remove_file(path).map_err(io_err(path))?;
-    }
-    Ok(target)
+/// Move a file to the system trash (macOS Trash, Windows Recycle Bin, freedesktop trash).
+fn move_to_trash(path: &Path) -> Result<()> {
+    #[allow(unused_mut)] // only mutated on macOS
+    let mut trash = trash::TrashContext::default();
+    // NSFileManager instead of the default Finder scripting: no permission prompt or sound,
+    // which suits a CLI (but Finder may not offer "Put Back")
+    #[cfg(target_os = "macos")]
+    trash::macos::TrashContextExtMacos::set_delete_method(
+        &mut trash,
+        trash::macos::DeleteMethod::NsFileManager,
+    );
+    trash.delete(path).map_err(|err| {
+        Error::Input(format!("moving {} to the trash failed: {err}", path.display()))
+    })
 }
 
 /// Check `path` is a `.csv` file in an existing dir. Call before compressing so a typo

@@ -10,7 +10,6 @@ const SMALL: &[u8] = b"%PDF-small";
 const UNLOCK_PHRASE: &str = "open-sesame";
 // CSV quoting needs `"` in a file name, which Windows forbids
 const B_STEM: &str = if cfg!(windows) { "b, c" } else { "b \"q\", c" };
-const DUMMY_SIZE: u64 = 13_264;
 
 #[test]
 fn missing_api_key_gives_friendly_error() {
@@ -35,6 +34,12 @@ fn set_api_key_persists_key_used_by_report_quota() {
     assert!(out.status.success(), "{}", stderr(&out));
     let key_file = tmp.path().join("config/pdf-compressor/api-key");
     assert_eq!(fs::read_to_string(&key_file).unwrap(), "project_public_abc\n");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = fs::metadata(&key_file).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o600, "API key file must be owner-only");
+    }
 
     // the saved key is used when the env var is absent
     let api = MockServer::ilovepdf(vec![]);
@@ -199,62 +204,53 @@ fn malformed_server_responses_are_rejected() {
 }
 
 #[test]
-fn in_place_replaces_original() {
-    let tmp = TempDir::new();
-    fs::create_dir_all(tmp.path().join(".Trash")).unwrap();
-    let pdf = tmp.pdf("doc.pdf");
-    // pre-existing Trash entry with same name must survive
-    fs::write(tmp.path().join(".Trash/doc.pdf"), "old").unwrap();
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(&pdf, fs::Permissions::from_mode(0o600)).unwrap();
-    }
-    let api = MockServer::ilovepdf(vec![SMALL.to_vec()]);
+// macOS and Windows always use the real system trash, which tests mustn't fill; on Linux the
+// freedesktop trash lives under the test's HOME
+#[cfg(target_os = "linux")]
+fn in_place_trashes_original_and_keeps_permissions() {
+    use std::os::unix::fs::PermissionsExt;
 
+    let tmp = TempDir::new();
+    let pdf = tmp.path().join("doc.pdf");
+    fs::write(&pdf, vec![1; 10_000]).unwrap();
+    fs::set_permissions(&pdf, fs::Permissions::from_mode(0o600)).unwrap();
+    // exactly 10% smaller: not more than the 10% default for --inplace
+    let api = MockServer::ilovepdf(vec![vec![0; 9_000]]);
+    let out = run_cli(tmp.path(), Some(&api), &["-i", pdf.to_str().unwrap()]);
+    assert!(stdout(&out).contains("needs more than 10%"), "{}", stdout(&out));
+    assert_eq!(fs::read(&pdf).unwrap(), vec![1; 10_000]);
+
+    let api = MockServer::ilovepdf(vec![SMALL.to_vec()]);
     let out = run_cli(tmp.path(), Some(&api), &["-i", pdf.to_str().unwrap()]);
     assert!(out.status.success(), "{}", stderr(&out));
     assert_eq!(fs::read(&pdf).unwrap(), SMALL);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let mode = fs::metadata(&pdf).unwrap().permissions().mode() & 0o777;
-        assert_eq!(mode, 0o600, "in-place replacement must keep permissions");
-    }
-    if cfg!(target_os = "macos") {
-        assert_eq!(fs::read(tmp.path().join(".Trash/doc.pdf")).unwrap(), b"old");
-        assert_eq!(fs::metadata(tmp.path().join(".Trash/doc 2.pdf")).unwrap().len(), DUMMY_SIZE);
-    }
+    assert!(stdout(&out).contains("Original moved to the trash."), "{}", stdout(&out));
+    let mode = fs::metadata(&pdf).unwrap().permissions().mode() & 0o777;
+    assert_eq!(mode, 0o600, "in-place replacement must keep permissions");
+    let trashed = tmp.path().join(".local/share/Trash/files/doc.pdf");
+    assert_eq!(fs::read(trashed).unwrap(), vec![1; 10_000], "original must be in the trash");
 }
 
 #[test]
 fn min_size_reduction_keeps_original() {
     let tmp = TempDir::new();
-    fs::create_dir_all(tmp.path().join(".Trash")).unwrap();
-    let pdf = tmp.pdf("doc.pdf");
-    let original = vec![1; 10_000];
-    // exactly 10% smaller is not *more than* the 10% default for --inplace
-    let exactly_10_pct = vec![0; 9_000];
-    for (output, args, kept) in [
-        (exactly_10_pct.clone(), vec!["-i"], true),
-        (exactly_10_pct, vec!["-i", "--min-red", "9"], false),
-        (vec![0; 10_005], vec![], true), // grew
+    let pdf = tmp.path().join("doc.pdf");
+    fs::write(&pdf, vec![1; 10_000]).unwrap();
+    let dest = tmp.path().join("doc-compressed.pdf");
+    for (output_len, min_red, written, expected) in [
+        // exactly 10% smaller is not *more than* 10%
+        (9_000, "10", false, "only 10.0% smaller (needs more than 10%), kept original."),
+        (9_000, "9", true, "= 10% smaller. Saved as"),
+        (9_050, "10", false, "only 9.5% smaller (needs more than 10%), kept original."),
+        (10_005, "0", false, "not smaller, kept original."),
     ] {
-        fs::write(&pdf, &original).unwrap();
-        let api = MockServer::ilovepdf(vec![output.clone()]);
-        let pdf_arg = pdf.to_str().unwrap();
-        let out = run_cli(tmp.path(), Some(&api), &[args.as_slice(), &[pdf_arg]].concat());
+        let _ = fs::remove_file(&dest);
+        let api = MockServer::ilovepdf(vec![vec![0; output_len]]);
+        let out = run_cli(tmp.path(), Some(&api), &[pdf.to_str().unwrap(), "--min-red", min_red]);
         assert!(out.status.success(), "{}", stderr(&out));
-        let expected = if kept { &original } else { &output };
-        assert_eq!(&fs::read(&pdf).unwrap(), expected, "{args:?}");
-        assert!(!tmp.path().join("doc-compressed.pdf").exists());
-        if kept {
-            assert!(stdout(&out).contains("kept original"), "{}", stdout(&out));
-        }
+        assert_eq!(dest.exists(), written, "{output_len} B at --min-red {min_red}");
+        assert!(stdout(&out).contains(expected), "{}", stdout(&out));
     }
-    let api = MockServer::ilovepdf(vec![vec![0; 9_050]]);
-    let out = run_cli(tmp.path(), Some(&api), &["-i", pdf.to_str().unwrap()]);
-    assert!(stdout(&out).contains("only 9.5% smaller (needs more than 10%)"), "{}", stdout(&out));
 }
 
 #[test]

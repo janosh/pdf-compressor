@@ -34,7 +34,7 @@ struct Cli {
     #[arg(long, exclusive = true)]
     report_quota: bool,
 
-    /// Replace originals with compressed PDFs (on macOS, originals go to the Trash).
+    /// Replace originals with compressed PDFs. Originals go to the system trash.
     #[arg(short, long, conflicts_with_all = ["suffix", "outdir"])]
     inplace: bool,
 
@@ -188,11 +188,8 @@ fn report_line(stat: &FileStats, min_pct: u8) -> String {
         Action::SavedAs(dest) => {
             format!("{sizes}, {saved} = {pct:.0}% smaller. Saved as {}.", dest.display())
         }
-        Action::ReplacedOriginal if cfg!(target_os = "macos") => {
-            format!("{sizes}, {saved} = {pct:.0}% smaller. Original moved to Trash.")
-        }
         Action::ReplacedOriginal => {
-            format!("{sizes}, {saved} = {pct:.0}% smaller. Original replaced.")
+            format!("{sizes}, {saved} = {pct:.0}% smaller. Original moved to the trash.")
         }
         Action::Failed(err) => format!("{sizes}, failed to write: {err}"),
     }

@@ -70,7 +70,8 @@ fn single_file_with_suffix_runs_full_task_workflow() {
     assert_eq!(
         stdout(&out),
         format!(
-            "'doc.pdf': 13.0KB -> 10.0B, 12.9KB = 100% smaller. Saved as {}.\n",
+            "'{}': 13.0KB -> 10.0B, 12.9KB = 100% smaller. Saved as {}.\n",
+            pdf.display(),
             tmp.path().join("doc-compressed.pdf").display()
         )
     );
@@ -156,7 +157,8 @@ fn multiple_files_map_zip_entries_to_inputs_and_write_to_outdir() {
     assert_eq!(api.paths().iter().filter(|path| path.ends_with("/upload")).count(), 2);
     assert_eq!(fs::read(outdir.join("a.pdf")).unwrap(), b"AAA");
     assert_eq!(fs::read(outdir.join("b.PDF")).unwrap(), b"BBBB");
-    assert!(stdout(&out).contains("[2/2] 'b.PDF'"), "{}", stdout(&out));
+    let b_line = format!("[2/2] '{}': ", tmp.path().join("in/sub/b.PDF").display());
+    assert!(stdout(&out).contains(&b_line), "{}", stdout(&out));
     assert!(
         stdout(&out).contains("Saved 25.9KB in total across 2 files: 25.9KB -> 7.0B"),
         "{}",
@@ -282,7 +284,6 @@ fn input_errors_fail_before_any_api_request() {
         (vec![&path("missing.pdf")], "missing.pdf does not exist"),
         (vec![&path("missing-dir")], "missing-dir does not exist"),
         (vec![&path("d/notes.txt"), &pdf], "1 input files aren't PDFs"),
-        (vec!["--on-no-files", "error"], "no input PDFs found"),
         (vec![&pdf, "-i", "-s", "x"], "cannot be used with"),
     ] {
         let api = MockServer::ilovepdf(vec![SMALL.to_vec()]);
@@ -302,24 +303,16 @@ fn input_errors_fail_before_any_api_request() {
 }
 
 #[test]
-fn bad_and_no_files_can_be_ignored() {
+fn no_input_pdfs_is_a_silent_noop() {
     let tmp = TempDir::new();
-    let txt = tmp.path().join("a.txt");
-    fs::write(&txt, "").unwrap();
-    let txt = txt.to_str().unwrap();
+    fs::create_dir(tmp.path().join("empty")).unwrap();
     let api = MockServer::ilovepdf(vec![]);
-    let out = run_cli(tmp.path(), Some(&api), &[]);
-    assert!(out.status.success());
-    assert_eq!(stdout(&out), "");
-
-    let out = run_cli(tmp.path(), Some(&api), &[txt, "--on-bad-files", "warn"]);
-    assert!(out.status.success());
-    assert_eq!(stderr(&out), format!("warning: 1 input files aren't PDFs: {txt}\n"));
-
-    let out = run_cli(tmp.path(), Some(&api), &[txt, "--on-bad-files", "ignore", "--verbose"]);
-    assert!(out.status.success());
-    assert_eq!(stdout(&out), "Nothing to do: no input PDFs found.\n");
-    assert_eq!(stderr(&out), "");
+    for args in [vec![], vec![tmp.path().join("empty").to_str().unwrap().to_owned()]] {
+        let args: Vec<&str> = args.iter().map(String::as_str).collect();
+        let out = run_cli(tmp.path(), Some(&api), &args);
+        assert!(out.status.success(), "{args:?}");
+        assert_eq!((stdout(&out).as_str(), stderr(&out).as_str()), ("", ""), "{args:?}");
+    }
     assert!(api.paths().is_empty());
 }
 
@@ -363,9 +356,10 @@ fn write_failure_is_per_file_and_stats_still_written() {
     );
     assert!(!out.status.success(), "partial failure must exit non-zero");
     assert_eq!(fs::read(tmp.path().join("a-compressed.pdf")).unwrap(), b"AAA");
-    assert!(stdout(&out).contains("[1/2] 'a.pdf'"), "{}", stdout(&out));
+    assert!(stdout(&out).contains(&format!("[1/2] '{}'", pdf_a.display())), "{}", stdout(&out));
     assert!(
-        stderr(&out).contains(&format!("[2/2] '{B_STEM}.pdf': 13.0KB -> 3.0B, failed to write")),
+        stderr(&out)
+            .contains(&format!("[2/2] '{}': 13.0KB -> 3.0B, failed to write", pdf_b.display())),
         "{}",
         stderr(&out)
     );
@@ -398,4 +392,47 @@ fn version_flag() {
         assert!(out.status.success());
         assert_eq!(stdout(&out), format!("pdf-compressor {}\n", env!("CARGO_PKG_VERSION")));
     }
+}
+
+#[test]
+fn uploads_run_in_parallel_and_stop_after_first_failure() {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    let tmp = TempDir::new();
+    let pdfs: Vec<_> = (0..6).map(|idx| tmp.pdf(&format!("f{idx}.pdf"))).collect();
+    let args: Vec<&str> = pdfs.iter().map(|pdf| pdf.to_str().unwrap()).collect();
+    let (in_flight, max_in_flight) = (Arc::new(AtomicUsize::new(0)), Arc::new(AtomicUsize::new(0)));
+    let (in_flight_mock, max_mock) = (Arc::clone(&in_flight), Arc::clone(&max_in_flight));
+    let outputs = (0..6).map(|idx| vec![b'x'; idx + 1]).collect();
+    let api = MockServer::ilovepdf_with(outputs, move |req| {
+        if req.path == "/v1/upload" {
+            let now = in_flight_mock.fetch_add(1, Ordering::SeqCst) + 1;
+            max_mock.fetch_max(now, Ordering::SeqCst);
+            std::thread::sleep(std::time::Duration::from_millis(100));
+            in_flight_mock.fetch_sub(1, Ordering::SeqCst);
+        }
+        None
+    });
+    let out = run_cli(tmp.path(), Some(&api), &args);
+    assert!(out.status.success(), "{}", stderr(&out));
+    let max = max_in_flight.load(Ordering::SeqCst);
+    assert!((2..=4).contains(&max), "expected 2-4 concurrent uploads, got {max}");
+    // uploads finish out of order but each server file maps back to its input
+    let form = api.request("/v1/process").form();
+    for idx in 0..6 {
+        assert_eq!(form[&format!("files[{idx}][server_filename]")], format!("srv{idx}"));
+        let dest = tmp.path().join(format!("f{idx}-compressed.pdf"));
+        assert_eq!(fs::read(dest).unwrap().len(), idx + 1);
+    }
+
+    let api = MockServer::ilovepdf_with(vec![], |req| {
+        (req.path == "/v1/upload").then(|| (500, b"boom".to_vec()))
+    });
+    let out = run_cli(tmp.path(), Some(&api), &args);
+    assert!(stderr(&out).contains("/v1/upload returned HTTP 500: boom"), "{}", stderr(&out));
+    let uploads = api.paths().iter().filter(|path| path.ends_with("/upload")).count();
+    assert!(uploads <= 4, "no new uploads after a failure, got {uploads}");
+    assert!(!api.paths().iter().any(|path| path.ends_with("/process")));
+    assert_eq!(api.paths().last().map(String::as_str), Some("DELETE /v1/task/T1"));
 }

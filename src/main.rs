@@ -1,10 +1,20 @@
+//! Batch-compress PDFs with the iLovePDF API: https://developer.ilovepdf.com
+
+mod api;
+mod compress;
+mod config;
+mod error;
+
+use std::fmt::Display;
+use std::io::IsTerminal;
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use clap::{ArgAction, Parser, ValueEnum};
-use pdf_compressor::{
-    Action, Client, CompressionLevel, DEFAULT_API_URL, Error, FileStats, Options, Output, Result,
-};
+use clap::{ArgAction, Parser};
+
+use crate::api::{Client, CompressionLevel, DEFAULT_API_URL};
+use crate::compress::{Action, FileStats, Options, Output};
+use crate::error::{Error, Result};
 
 /// Environment variable overriding the iLovePDF API base URL.
 const API_URL_ENV: &str = "ILOVEPDF_API_URL";
@@ -49,18 +59,6 @@ struct Cli {
     #[arg(long)]
     password: Option<String>,
 
-    /// Print full paths and the number of files to compress.
-    #[arg(long)]
-    verbose: bool,
-
-    /// What to do when no PDFs were found.
-    #[arg(long, value_enum, default_value_t = OnNoFiles::Ignore)]
-    on_no_files: OnNoFiles,
-
-    /// What to do with input files that aren't PDFs.
-    #[arg(long, value_enum, default_value_t = OnBadFiles::Error)]
-    on_bad_files: OnBadFiles,
-
     /// Write per-file size stats to a .csv file.
     #[arg(long, value_name = "PATH")]
     write_stats_path: Option<PathBuf>,
@@ -70,21 +68,10 @@ struct Cli {
     version: Option<bool>,
 }
 
-#[derive(Clone, Copy, ValueEnum)]
-enum OnNoFiles {
-    Error,
-    Ignore,
-}
-
-#[derive(Clone, Copy, ValueEnum)]
-enum OnBadFiles {
-    Error,
-    Warn,
-    Ignore,
-}
-
 fn main() -> ExitCode {
-    match run(Cli::parse()) {
+    let result = run(Cli::parse());
+    status(""); // clear any progress line before final output
+    match result {
         Ok(true) => ExitCode::SUCCESS,
         Ok(false) => ExitCode::FAILURE,
         Err(err) => {
@@ -94,15 +81,23 @@ fn main() -> ExitCode {
     }
 }
 
+/// Show a transient progress line on stderr, only when it's a terminal so pipes and logs
+/// stay clean. An empty message clears the line.
+pub(crate) fn status(msg: impl Display) {
+    if std::io::stderr().is_terminal() {
+        eprint!("\r\x1b[2K{msg}");
+    }
+}
+
 fn client() -> Result<Client> {
     let api_url = std::env::var(API_URL_ENV).ok().filter(|url| !url.trim().is_empty());
-    Client::new(&pdf_compressor::api_key()?, api_url.as_deref().unwrap_or(DEFAULT_API_URL))
+    Client::new(&config::api_key()?, api_url.as_deref().unwrap_or(DEFAULT_API_URL))
 }
 
 // Returns whether every file was handled successfully.
 fn run(cli: Cli) -> Result<bool> {
     if let Some(key) = &cli.set_api_key {
-        let path = pdf_compressor::set_api_key(key)?;
+        let path = config::set_api_key(key)?;
         println!("API key saved to {}", path.display());
         return Ok(true);
     }
@@ -112,26 +107,14 @@ fn run(cli: Cli) -> Result<bool> {
         return Ok(true);
     }
 
-    let (pdfs, not_pdfs) = pdf_compressor::collect_pdfs(&cli.paths)?;
+    let (pdfs, not_pdfs) = compress::collect_pdfs(&cli.paths)?;
     if !not_pdfs.is_empty() {
         let list: Vec<_> = not_pdfs.iter().map(|path| path.display().to_string()).collect();
         let msg = format!("{} input files aren't PDFs: {}", list.len(), list.join(", "));
-        match cli.on_bad_files {
-            OnBadFiles::Error => return Err(Error::Input(msg)),
-            OnBadFiles::Warn => eprintln!("warning: {msg}"),
-            OnBadFiles::Ignore => {}
-        }
+        return Err(Error::Input(msg));
     }
     if pdfs.is_empty() {
-        return match cli.on_no_files {
-            OnNoFiles::Error => Err(Error::Input("no input PDFs found".into())),
-            OnNoFiles::Ignore => {
-                if cli.verbose {
-                    println!("Nothing to do: no input PDFs found.");
-                }
-                Ok(true)
-            }
-        };
+        return Ok(true);
     }
 
     let opts = Options {
@@ -145,21 +128,19 @@ fn run(cli: Cli) -> Result<bool> {
         password: cli.password,
     };
     // fail on bad inputs before any network request
-    pdf_compressor::output_paths(&pdfs, &opts.output)?;
+    compress::output_paths(&pdfs, &opts.output)?;
     if let Some(path) = &cli.write_stats_path {
-        pdf_compressor::check_stats_path(path)?;
-    }
-    if cli.verbose {
-        println!("PDFs to be compressed with iLovePDF: {}", pdfs.len());
+        compress::check_stats_path(path)?;
     }
 
-    let stats = pdf_compressor::compress_files(&client()?, &pdfs, &opts)?;
+    let stats = compress::compress_files(&client()?, &pdfs, &opts)?;
+    status("");
     for (idx, stat) in stats.iter().enumerate() {
         let counter = match stats.len() {
             1 => String::new(),
             n_files => format!("[{}/{n_files}] ", idx + 1),
         };
-        let line = report_line(stat, cli.verbose, opts.min_size_reduction);
+        let line = report_line(stat, opts.min_size_reduction);
         if matches!(stat.action, Action::Failed(_)) {
             eprintln!("{counter}{line}");
         } else {
@@ -183,20 +164,15 @@ fn run(cli: Cli) -> Result<bool> {
     }
 
     if let Some(path) = &cli.write_stats_path {
-        pdf_compressor::write_stats(&stats, path)?;
+        compress::write_stats(&stats, path)?;
     }
     Ok(!stats.iter().any(|stat| matches!(stat.action, Action::Failed(_))))
 }
 
-fn report_line(stat: &FileStats, verbose: bool, min_pct: u8) -> String {
-    let name = if verbose {
-        stat.path.display().to_string()
-    } else {
-        let name = stat.path.file_name().unwrap_or_default();
-        name.to_string_lossy().into_owned()
-    };
+fn report_line(stat: &FileStats, min_pct: u8) -> String {
     let sizes = format!(
-        "'{name}': {} -> {}",
+        "'{}': {} -> {}",
+        stat.path.display(),
         human_size(stat.original_size),
         human_size(stat.compressed_size)
     );

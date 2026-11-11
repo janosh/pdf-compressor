@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
-use std::net::TcpListener;
+use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -92,47 +92,18 @@ impl MockServer {
         let requests = Arc::new(Mutex::new(Vec::new()));
         let recorded = Arc::clone(&requests);
         let handler: Arc<Handler> = Arc::new(handler);
+        // one thread per connection so concurrent client requests really overlap
         std::thread::spawn(move || {
             for stream in listener.incoming() {
-                let Ok(mut stream) = stream else { break };
-                let mut reader = BufReader::new(stream.try_clone().expect("clone stream"));
-                let mut line = String::new();
-                if reader.read_line(&mut line).unwrap_or(0) == 0 {
-                    continue;
-                }
-                let mut parts = line.split_whitespace();
-                let method = parts.next().unwrap_or_default().to_owned();
-                let path = parts.next().unwrap_or_default().to_owned();
-                let mut headers = HashMap::new();
-                loop {
-                    let mut header = String::new();
-                    reader.read_line(&mut header).expect("read header");
-                    let header = header.trim_end();
-                    if header.is_empty() {
-                        break;
-                    }
-                    let (key, val) = header.split_once(':').expect("header colon");
-                    headers.insert(key.trim().to_lowercase(), val.trim().to_owned());
-                }
-                assert!(!headers.contains_key("transfer-encoding"), "chunked bodies unsupported");
-                let len = headers.get("content-length").map_or(0, |len| len.parse().expect("len"));
-                let mut body = vec![0; len];
-                reader.read_exact(&mut body).expect("read body");
-                let request = Request { method, path, headers, body };
-                let (status, resp_body) = handler(&request);
-                recorded.lock().expect("lock").push(request);
-                let head = format!(
-                    "HTTP/1.1 {status} X\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-                    resp_body.len()
-                );
-                let _ = stream.write_all(head.as_bytes());
-                let _ = stream.write_all(&resp_body);
+                let Ok(stream) = stream else { break };
+                let (handler, recorded) = (Arc::clone(&handler), Arc::clone(&recorded));
+                std::thread::spawn(move || serve(stream, &*handler, &recorded));
             }
         });
         Self { url, requests }
     }
 
-    // Mock of a well-behaved iLovePDF: compresses each upload to `outputs[upload_idx]`.
+    // Mock of a well-behaved iLovePDF: compresses input `idx` to `outputs[idx]`.
     // Multi-file downloads are ZIPs with entries in reverse order to exercise index mapping.
     pub fn ilovepdf(outputs: Vec<Vec<u8>>) -> Self {
         Self::ilovepdf_with(outputs, |_| None)
@@ -143,7 +114,6 @@ impl MockServer {
         outputs: Vec<Vec<u8>>,
         override_fn: impl Fn(&Request) -> Option<(u16, Vec<u8>)> + Send + Sync + 'static,
     ) -> Self {
-        let n_uploads = AtomicUsize::new(0);
         Self::start(move |req| {
             if let Some(resp) = override_fn(req) {
                 return resp;
@@ -157,7 +127,11 @@ impl MockServer {
             } else if path == "/v1/start/compress" {
                 json(serde_json::json!({"server": req.headers["host"], "task": "T1"}))
             } else if path == "/v1/upload" {
-                let idx = n_uploads.fetch_add(1, Ordering::SeqCst);
+                // name the server file after the uploaded part's `{idx}.pdf` so the test can
+                // check uploads finishing out of order still map back to the right input
+                let body = String::from_utf8_lossy(&req.body);
+                let name = body.split("filename=\"").nth(1).expect("file part");
+                let idx: String = name.chars().take_while(char::is_ascii_digit).collect();
                 json(serde_json::json!({"server_filename": format!("srv{idx}")}))
             } else if path == "/v1/process" {
                 let n_files =
@@ -204,6 +178,41 @@ impl MockServer {
             .unwrap_or_else(|| panic!("no request to {path}"))
             .clone()
     }
+}
+
+fn serve(mut stream: TcpStream, handler: &Handler, recorded: &Mutex<Vec<Request>>) {
+    let mut reader = BufReader::new(stream.try_clone().expect("clone stream"));
+    let mut line = String::new();
+    if reader.read_line(&mut line).unwrap_or(0) == 0 {
+        return;
+    }
+    let mut parts = line.split_whitespace();
+    let method = parts.next().unwrap_or_default().to_owned();
+    let path = parts.next().unwrap_or_default().to_owned();
+    let mut headers = HashMap::new();
+    loop {
+        let mut header = String::new();
+        reader.read_line(&mut header).expect("read header");
+        let header = header.trim_end();
+        if header.is_empty() {
+            break;
+        }
+        let (key, val) = header.split_once(':').expect("header colon");
+        headers.insert(key.trim().to_lowercase(), val.trim().to_owned());
+    }
+    assert!(!headers.contains_key("transfer-encoding"), "chunked bodies unsupported");
+    let len = headers.get("content-length").map_or(0, |len| len.parse().expect("len"));
+    let mut body = vec![0; len];
+    reader.read_exact(&mut body).expect("read body");
+    let request = Request { method, path, headers, body };
+    let (status, resp_body) = handler(&request);
+    recorded.lock().expect("lock").push(request);
+    let head = format!(
+        "HTTP/1.1 {status} X\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        resp_body.len()
+    );
+    let _ = stream.write_all(head.as_bytes());
+    let _ = stream.write_all(&resp_body);
 }
 
 pub fn zip_entries(entries: impl IntoIterator<Item = (String, Vec<u8>)>) -> Vec<u8> {

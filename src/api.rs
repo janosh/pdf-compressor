@@ -1,19 +1,24 @@
 //! Minimal client for the iLovePDF REST API: https://developer.ilovepdf.com/docs/api-reference
 
 use std::fs;
+use std::hash::{BuildHasher, RandomState};
 use std::io::{Cursor, Read};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::thread;
 use std::time::Duration;
 
 use clap::ValueEnum;
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use ureq::http::Response;
-use ureq::{Agent, Body, RequestBuilder};
+use ureq::{Agent, Body, RequestBuilder, SendBody};
 
 use crate::error::{Error, Result, io_err};
 
 pub const DEFAULT_API_URL: &str = "https://api.ilovepdf.com";
+/// Concurrent uploads per task. Bounded so big batches don't open dozens of connections.
+const PARALLEL_UPLOADS: usize = 4;
 
 type Reply = std::result::Result<Response<Body>, ureq::Error>;
 
@@ -136,8 +141,8 @@ impl Client {
             ("compression_level".to_owned(), level.get_name().to_owned()),
             ("output_filename".to_owned(), "{filename}".to_owned()),
         ];
-        for (idx, pdf) in pdfs.iter().enumerate() {
-            let server_filename = self.upload(task_url, task, pdf, idx)?;
+        for (idx, server_filename) in self.upload_all(task_url, task, pdfs)?.into_iter().enumerate()
+        {
             form.push((format!("files[{idx}][filename]"), format!("{idx}.pdf")));
             form.push((format!("files[{idx}][server_filename]"), server_filename));
             if let Some(password) = password {
@@ -145,6 +150,7 @@ impl Client {
             }
         }
 
+        crate::status(format!("Compressing {} PDFs on iLovePDF...", pdfs.len()));
         let url = format!("{task_url}/process");
         let resp = self.authed(self.agent.post(&url)).send_form(form);
         let ProcessResponse { output_filenumber } = read_json(&url, resp)?;
@@ -155,6 +161,7 @@ impl Client {
             )));
         }
 
+        crate::status("Downloading compressed PDFs...");
         let url = format!("{task_url}/download/{task}");
         let resp = self.authed(self.agent.get(&url)).call();
         let bytes = check_status(&url, resp)?
@@ -166,29 +173,62 @@ impl Client {
         if pdfs.len() == 1 { Ok(vec![bytes]) } else { unzip_by_index(bytes, pdfs.len()) }
     }
 
+    /// Upload `pdfs` with up to `PARALLEL_UPLOADS` concurrent requests. Returns server
+    /// file names in input order. After the first failure no new uploads start.
+    fn upload_all(&self, task_url: &str, task: &str, pdfs: &[PathBuf]) -> Result<Vec<String>> {
+        let (next, done, failed) =
+            (AtomicUsize::new(0), AtomicUsize::new(0), AtomicBool::new(false));
+        crate::status(format!("Uploading 0/{} PDFs...", pdfs.len()));
+        let mut results: Vec<(usize, Result<String>)> = thread::scope(|scope| {
+            let workers: Vec<_> = (0..PARALLEL_UPLOADS.min(pdfs.len()))
+                .map(|_| {
+                    scope.spawn(|| {
+                        let mut results = Vec::new();
+                        while !failed.load(Ordering::Relaxed) {
+                            let idx = next.fetch_add(1, Ordering::Relaxed);
+                            let Some(pdf) = pdfs.get(idx) else { break };
+                            let result = self.upload(task_url, task, pdf, idx);
+                            failed.fetch_or(result.is_err(), Ordering::Relaxed);
+                            let n_done = done.fetch_add(1, Ordering::Relaxed) + 1;
+                            crate::status(format!("Uploading {n_done}/{} PDFs...", pdfs.len()));
+                            results.push((idx, result));
+                        }
+                        results
+                    })
+                })
+                .collect();
+            workers
+                .into_iter()
+                .flat_map(|worker| worker.join().expect("upload thread panicked"))
+                .collect()
+        });
+        results.sort_by_key(|(idx, _)| *idx);
+        results.into_iter().map(|(_, result)| result).collect()
+    }
+
+    /// Stream one PDF as multipart/form-data without loading it into memory.
     fn upload(&self, task_url: &str, task: &str, pdf: &Path, idx: usize) -> Result<String> {
-        let content = fs::read(pdf).map_err(io_err(pdf))?;
-        // the boundary must not occur in the content, else the server splits the PDF
-        let boundary = (0..)
-            .map(|n| format!("pdf-compressor-boundary-7f3a9c1e5b2d4086-{n}"))
-            .find(|boundary| !content.windows(boundary.len()).any(|win| win == boundary.as_bytes()))
-            .expect("some boundary is absent from any finite file");
-        let body = [
-            format!(
-                "--{boundary}\r\nContent-Disposition: form-data; name=\"task\"\r\n\r\n{task}\r\n\
-                 --{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{idx}.pdf\"\r\n\
-                 Content-Type: application/pdf\r\n\r\n"
-            )
-            .as_bytes(),
-            &content,
-            format!("\r\n--{boundary}--\r\n").as_bytes(),
-        ]
-        .concat();
+        let file = fs::File::open(pdf).map_err(io_err(pdf))?;
+        let file_len = file.metadata().map_err(io_err(pdf))?.len();
+        // 128 random bits: a collision with the PDF's bytes is practically impossible
+        let random = || RandomState::new().hash_one(idx);
+        let boundary = format!("pdf-compressor-{:016x}{:016x}", random(), random());
+        let head = format!(
+            "--{boundary}\r\nContent-Disposition: form-data; name=\"task\"\r\n\r\n{task}\r\n\
+             --{boundary}\r\nContent-Disposition: form-data; name=\"file\"; filename=\"{idx}.pdf\"\r\n\
+             Content-Type: application/pdf\r\n\r\n"
+        );
+        let tail = format!("\r\n--{boundary}--\r\n");
+        let content_length = head.len() as u64 + file_len + tail.len() as u64;
+        let body = Cursor::new(head).chain(file).chain(Cursor::new(tail));
 
         let url = format!("{task_url}/upload");
-        let content_type = format!("multipart/form-data; boundary={boundary}");
-        let resp =
-            self.authed(self.agent.post(&url)).header("Content-Type", content_type).send(&body[..]);
+        let resp = self
+            .authed(self.agent.post(&url))
+            .header("Content-Type", format!("multipart/form-data; boundary={boundary}"))
+            // explicit length stops ureq from using chunked encoding for a streamed body
+            .header("Content-Length", content_length.to_string())
+            .send(SendBody::from_owned_reader(body));
         Ok(read_json::<UploadResponse>(&url, resp)?.server_filename)
     }
 }

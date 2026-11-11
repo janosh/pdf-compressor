@@ -42,7 +42,7 @@ pdf-compressor docs/ -o out/ -s "" # all PDFs under docs/ into out/ with origina
 pdf-compressor -i report.pdf      # replace original (moved to the Trash on macOS)
 ```
 
-All inputs are validated (output paths, stats file type, file existence) before anything is uploaded, so typos don't cost API quota.
+All inputs are validated (output paths, stats file type, file existence) before anything is uploaded, so typos don't cost API quota. Uploads stream from disk, up to 4 at a time, with a progress line when run in a terminal.
 
 ## Options
 
@@ -56,37 +56,17 @@ All inputs are validated (output paths, stats file type, file existence) before 
 | `--password`               |                 | Password for protected PDFs. All inputs share it; PDFs with different passwords must be compressed separately.                     |
 | `--set-api-key`            |                 | Save the iLovePDF public key. Can't be combined with other flags.                                                                   |
 | `--report-quota`           |                 | Print the number of remaining files in the current billing cycle.                                                                   |
-| `--verbose`                | off             | Print full paths and the number of files to compress.                                                                               |
-| `--on-no-files`            | `ignore`        | `ignore` exits 0, `error` exits 1 when no input PDFs were found. Useful in shell scripts.                                           |
-| `--on-bad-files`           | `error`         | `error`, `warn` or `ignore` input files without a `.pdf` extension.                                                                 |
 | `--write-stats-path`       |                 | Write per-file original vs compressed sizes and actions taken to a `.csv` file.                                          |
 | `-v/--version`             |                 | Print the version.                                                                                                                  |
 
 Set `ILOVEPDF_API_URL` to point at a different API endpoint (default `https://api.ilovepdf.com`).
 
-## Rust library
-
-```rust
-use pdf_compressor::{Client, CompressionLevel, Options, Output, DEFAULT_API_URL};
-
-let client = Client::new(&pdf_compressor::api_key()?, DEFAULT_API_URL)?;
-let (pdfs, _not_pdfs) = pdf_compressor::collect_pdfs(&["docs".into()])?;
-let opts = Options {
-    level: CompressionLevel::Recommended,
-    output: Output::Copy { dir: None, suffix: "-compressed".into() },
-    min_size_reduction: 0,
-    password: None,
-};
-for stat in pdf_compressor::compress_files(&client, &pdfs, &opts)? {
-    println!("{}: {:.0}% smaller", stat.path.display(), stat.reduction_ratio() * 100.0);
-}
-```
-
 ## Migrating from v0.x (Python)
 
 v1 is a Rust rewrite. The CLI keeps its flags with these exceptions:
 
-- The Python API (`from pdf_compressor import compress, Compress`) is gone. Call the CLI via `subprocess` or use the Rust crate.
+- The Python API (`from pdf_compressor import compress, Compress`) is gone. Call the CLI via `subprocess`.
+- `--verbose`, `--on-no-files` and `--on-bad-files` were removed: finding no PDFs exits 0 silently, passing a non-PDF file is an error, and results always show paths as given.
 - `--set-api-key` writes to the user config dir instead of a `.env` file inside the installed package. Re-run it once after upgrading, or set `ILOVEPDF_PUBLIC_KEY`.
 - `--debug` was removed.
 - `--outdir` now actually places the compressed PDFs there (it previously only changed where the download was staged).

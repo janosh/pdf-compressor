@@ -11,7 +11,7 @@ use std::sync::{Arc, Mutex};
 pub const DUMMY_PDF: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/assets/dummy.pdf");
 
 // Directory under the system temp dir, removed on drop.
-pub struct TempDir(pub PathBuf);
+pub struct TempDir(PathBuf);
 
 impl TempDir {
     pub fn new() -> Self {
@@ -52,10 +52,6 @@ pub struct Request {
 }
 
 impl Request {
-    pub fn body_str(&self) -> String {
-        String::from_utf8_lossy(&self.body).into_owned()
-    }
-
     // Parts of a multipart/form-data body as (name, filename, content). Panics on malformed
     // framing, e.g. a missing closing boundary.
     pub fn multipart(&self) -> Vec<(String, Option<String>, Vec<u8>)> {
@@ -122,7 +118,7 @@ impl Request {
             }
             String::from_utf8(out).expect("utf8 form")
         };
-        self.body_str()
+        String::from_utf8_lossy(&self.body)
             .split('&')
             .filter_map(|pair| pair.split_once('='))
             .map(|(key, val)| (decode(key), decode(val)))
@@ -205,10 +201,8 @@ impl MockServer {
         outputs: Vec<Vec<u8>>,
         override_fn: impl Fn(&Request) -> Option<(u16, Vec<u8>)> + Send + Sync + 'static,
     ) -> Self {
-        let host = Arc::new(Mutex::new(String::new()));
-        let host_for_handler = Arc::clone(&host);
         let n_uploads = AtomicUsize::new(0);
-        let server = Self::start(move |req| {
+        Self::start(move |req| {
             if let Some(resp) = override_fn(req) {
                 return resp;
             }
@@ -219,8 +213,7 @@ impl MockServer {
             } else if path == "/v1/info" {
                 json(serde_json::json!({"remaining_credits": 42}))
             } else if path == "/v1/start/compress" {
-                let host = host_for_handler.lock().expect("lock").clone();
-                json(serde_json::json!({"server": host, "task": "T1"}))
+                json(serde_json::json!({"server": req.headers["host"], "task": "T1"}))
             } else if path == "/v1/upload" {
                 let idx = n_uploads.fetch_add(1, Ordering::SeqCst);
                 json(serde_json::json!({"server_filename": format!("srv{idx}")}))
@@ -254,9 +247,7 @@ impl MockServer {
                     format!("no mock for {} {path}", req.method).into_bytes(),
                 )
             }
-        });
-        *host.lock().expect("lock") = server.url.trim_start_matches("http://").to_owned();
-        server
+        })
     }
 
     pub fn paths(&self) -> Vec<String> {

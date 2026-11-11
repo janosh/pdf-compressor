@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use clap::builder::{PossibleValuesParser, TypedValueParser};
 use clap::{ArgAction, Parser, ValueEnum};
 use pdf_compressor::{
     Action, Client, CompressionLevel, DEFAULT_API_URL, Error, FileStats, Options, Output, Result,
@@ -39,13 +38,7 @@ struct Cli {
     outdir: Option<PathBuf>,
 
     /// How hard to squeeze. 'extreme' noticeably degrades embedded images.
-    #[arg(
-        long,
-        visible_alias = "cl",
-        default_value = "recommended",
-        value_parser = PossibleValuesParser::new(["low", "recommended", "extreme"])
-            .map(|level| level.parse::<CompressionLevel>().expect("restricted to valid levels")),
-    )]
+    #[arg(long, visible_alias = "cl", value_enum, default_value_t)]
     compression_level: CompressionLevel,
 
     /// Keep compressed files only if more than this many percent smaller. [default: 10 with --inplace, else 0]
@@ -169,7 +162,7 @@ fn run(cli: Cli) -> Result<bool> {
         },
         password: cli.password,
     };
-    // fail on bad outputs before authenticating, so typos don't cost API quota
+    // fail on bad inputs before any network request
     pdf_compressor::output_paths(&pdfs, &opts.output)?;
     if let Some(path) = &cli.write_stats_path {
         StatsFormat::from_path(path)?;
@@ -191,17 +184,17 @@ fn run(cli: Cli) -> Result<bool> {
             println!("{counter}{line}");
         }
     }
-    let (total_orig, total_comp) = stats
+    let saved: Vec<_> = stats
         .iter()
         .filter(|stat| matches!(stat.action, Action::ReplacedOriginal | Action::SavedAs(_)))
-        .fold((0, 0), |(orig, comp), stat| {
-            (orig + stat.original_size, comp + stat.compressed_size)
-        });
-    if stats.len() > 2 && total_orig > total_comp {
+        .collect();
+    let total_orig: u64 = saved.iter().map(|stat| stat.original_size).sum();
+    let total_comp: u64 = saved.iter().map(|stat| stat.compressed_size).sum();
+    if saved.len() > 1 {
         println!(
             "Saved {} in total across {} files: {} -> {}",
             human_size(total_orig - total_comp),
-            stats.len(),
+            saved.len(),
             human_size(total_orig),
             human_size(total_comp)
         );
@@ -249,7 +242,6 @@ fn report_line(stat: &FileStats, verbose: bool, min_pct: u8) -> String {
             format!("{sizes}, {saved} = {pct:.0}% smaller. Original replaced.")
         }
         Action::Failed(err) => format!("{sizes}, failed to write: {err}"),
-        _ => format!("{sizes}, {:?}", stat.action),
     }
 }
 

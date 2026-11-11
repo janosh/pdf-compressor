@@ -15,7 +15,7 @@ use crate::error::{Error, Result, io_err};
 pub const DEFAULT_API_URL: &str = "https://api.ilovepdf.com";
 
 /// How hard iLovePDF squeezes. `Extreme` noticeably degrades embedded images.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, clap::ValueEnum)]
 pub enum CompressionLevel {
     Low,
     #[default]
@@ -29,21 +29,6 @@ impl CompressionLevel {
             Self::Low => "low",
             Self::Recommended => "recommended",
             Self::Extreme => "extreme",
-        }
-    }
-}
-
-impl std::str::FromStr for CompressionLevel {
-    type Err = Error;
-
-    fn from_str(level: &str) -> Result<Self> {
-        match level {
-            "low" => Ok(Self::Low),
-            "recommended" => Ok(Self::Recommended),
-            "extreme" => Ok(Self::Extreme),
-            _ => Err(Error::Input(format!(
-                "compression level must be low, recommended or extreme, got {level:?}"
-            ))),
         }
     }
 }

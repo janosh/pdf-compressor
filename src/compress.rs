@@ -30,14 +30,13 @@ pub struct Options {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[non_exhaustive]
 pub enum Action {
     ReplacedOriginal,
     SavedAs(PathBuf),
     /// Compression didn't beat `min_size_reduction`, nothing was written.
     KeptOriginal,
     /// Writing the compressed file failed. The original is untouched unless the message
-    /// says it was moved to the Trash.
+    /// says it was moved to the Trash (`--inplace` on macOS).
     Failed(String),
 }
 
@@ -62,7 +61,8 @@ impl FileStats {
 }
 
 /// Expand `paths` into a sorted list of PDFs, deduplicated by canonical path. Directories
-/// are searched recursively for `*.pdf` without following symlinked directories.
+/// are searched recursively for `*.pdf`, skipping hidden entries (e.g. macOS `._*` resource
+/// forks, `.git`) and symlinked directories.
 /// Explicitly passed non-PDF files are returned separately. Missing paths are an error.
 pub fn collect_pdfs(paths: &[PathBuf]) -> Result<(Vec<PathBuf>, Vec<PathBuf>)> {
     let mut seen = HashSet::new();
@@ -99,6 +99,9 @@ fn is_pdf(path: &Path) -> bool {
 fn walk_pdfs(dir: &Path, add: &mut impl FnMut(PathBuf) -> Result<()>) -> Result<()> {
     for entry in fs::read_dir(dir).map_err(io_err(dir))? {
         let entry = entry.map_err(io_err(dir))?;
+        if entry.file_name().as_encoded_bytes().starts_with(b".") {
+            continue;
+        }
         let path = entry.path();
         // file_type() doesn't follow symlinks: recursing only into real dirs avoids cycles
         if entry.file_type().map_err(io_err(&path))?.is_dir() {
@@ -110,8 +113,9 @@ fn walk_pdfs(dir: &Path, add: &mut impl FnMut(PathBuf) -> Result<()>) -> Result<
     Ok(())
 }
 
-/// Where each PDF's compressed version would be written. Errors (before any API request)
-/// if an output would overwrite any input, two outputs collide, or the suffix is a path.
+/// Where each PDF's compressed version would be written. Creates the output dir if needed.
+/// Errors (before any API request) if an output would overwrite any input, two outputs
+/// collide, or the suffix is a path.
 pub fn output_paths(pdfs: &[PathBuf], output: &Output) -> Result<Vec<PathBuf>> {
     let Output::Copy { dir, suffix } = output else {
         return Ok(pdfs.to_vec());
@@ -121,17 +125,13 @@ pub fn output_paths(pdfs: &[PathBuf], output: &Output) -> Result<Vec<PathBuf>> {
             "suffix must not contain path separators, got {suffix:?}, use --outdir instead"
         )));
     }
-    if let Some(dir) = dir
-        && dir.is_file()
-    {
-        return Err(Error::Input(format!(
-            "output dir {} is a file",
-            dir.display()
-        )));
+    // create first so `normalize` can canonicalize paths like `new/../d` reliably
+    if let Some(dir) = dir {
+        fs::create_dir_all(dir).map_err(io_err(dir))?;
     }
     let inputs: HashSet<PathBuf> = pdfs
         .iter()
-        .map(|pdf| pdf.canonicalize().map_err(io_err(pdf)))
+        .map(|pdf| normalize(pdf))
         .collect::<Result<_>>()?;
     let mut dests = HashSet::new();
     pdfs.iter()
@@ -143,7 +143,7 @@ pub fn output_paths(pdfs: &[PathBuf], output: &Output) -> Result<Vec<PathBuf>> {
                 .as_deref()
                 .unwrap_or(parent)
                 .join(format!("{stem}{suffix}.{ext}"));
-            let key = normalize(&dest);
+            let key = normalize(&dest)?;
             if inputs.contains(&key) {
                 return Err(Error::Input(format!(
                     "output {} would overwrite an input PDF: change --suffix or --outdir, or \
@@ -163,16 +163,21 @@ pub fn output_paths(pdfs: &[PathBuf], output: &Output) -> Result<Vec<PathBuf>> {
         .collect()
 }
 
-// Canonical form of a possibly not-yet-existing file: canonicalize the parent if it exists.
-fn normalize(path: &Path) -> PathBuf {
-    let parent = match path.parent() {
-        Some(parent) if !parent.as_os_str().is_empty() => parent,
-        _ => Path::new("."),
-    };
-    match (parent.canonicalize(), path.file_name()) {
-        (Ok(parent), Some(name)) => parent.join(name),
-        _ => path.to_path_buf(),
+// Comparison key for a file that may not exist yet: canonical parent + file name, case-folded
+// where the default file systems are case-insensitive (macOS, Windows).
+fn normalize(path: &Path) -> Result<PathBuf> {
+    let parent = path
+        .parent()
+        .filter(|dir| !dir.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    let key = parent
+        .canonicalize()
+        .map_err(io_err(parent))?
+        .join(path.file_name().unwrap_or_default());
+    if cfg!(any(target_os = "macos", windows)) {
+        return Ok(PathBuf::from(key.to_string_lossy().to_lowercase()));
     }
+    Ok(key)
 }
 
 /// Compress `pdfs` and write results per `opts.output`. Validates outputs before using any
@@ -184,9 +189,6 @@ pub fn compress_files(client: &Client, pdfs: &[PathBuf], opts: &Options) -> Resu
         .iter()
         .map(|pdf| Ok(fs::metadata(pdf).map_err(io_err(pdf))?.len()))
         .collect::<Result<Vec<_>>>()?;
-    if let Output::Copy { dir: Some(dir), .. } = &opts.output {
-        fs::create_dir_all(dir).map_err(io_err(dir))?;
-    }
     let compressed = client.compress(pdfs, opts.level, opts.password.as_deref())?;
 
     let in_place = opts.output == Output::InPlace;
@@ -225,21 +227,37 @@ fn worth_keeping(stats: &FileStats, min_pct: u8) -> bool {
 // So a failed write never truncates an existing file.
 fn place(pdf: &Path, dest: &Path, bytes: &[u8], in_place: bool) -> Result<()> {
     let name = dest.file_name().unwrap_or_default().to_string_lossy();
-    let tmp = dest.with_file_name(format!(".{name}.pdf-compressor-tmp"));
-    let result = fs::write(&tmp, bytes).map_err(io_err(&tmp)).and_then(|()| {
-        if in_place && cfg!(target_os = "macos") {
-            move_to_trash(pdf)?;
+    let tmp = dest.with_file_name(format!(".{name}.tmp"));
+    let staged = fs::write(&tmp, bytes).map_err(io_err(&tmp)).and_then(|()| {
+        if in_place {
+            // keep the original's permissions, e.g. a private 0600 document
+            let perms = fs::metadata(pdf).map_err(io_err(pdf))?.permissions();
+            fs::set_permissions(&tmp, perms).map_err(io_err(&tmp))?;
         }
-        fs::rename(&tmp, dest).map_err(io_err(dest))
+        if in_place && cfg!(target_os = "macos") {
+            return move_to_trash(pdf).map(Some);
+        }
+        Ok(None)
     });
-    if result.is_err() {
+    let trashed = staged.inspect_err(|_| {
         let _ = fs::remove_file(&tmp); // our own temp file, may not exist
-    }
-    result
+    })?;
+    fs::rename(&tmp, dest).map_err(|err| match trashed {
+        // don't delete the only remaining copy of the compressed PDF
+        Some(trashed) => Error::Input(format!(
+            "original moved to {}, but moving compressed PDF {} into place failed: {err}",
+            trashed.display(),
+            tmp.display()
+        )),
+        None => {
+            let _ = fs::remove_file(&tmp);
+            io_err(dest)(err)
+        }
+    })
 }
 
-/// Move a file into ~/.Trash, appending a counter if the name is taken.
-fn move_to_trash(path: &Path) -> Result<()> {
+/// Move a file into ~/.Trash, appending a counter if the name is taken. Returns its new path.
+fn move_to_trash(path: &Path) -> Result<PathBuf> {
     let home = std::env::var_os("HOME").ok_or_else(|| Error::Input("HOME not set".into()))?;
     let trash = PathBuf::from(home).join(".Trash");
     let stem = path.file_stem().unwrap_or_default().to_string_lossy();
@@ -255,7 +273,7 @@ fn move_to_trash(path: &Path) -> Result<()> {
         fs::copy(path, &target).map_err(io_err(&target))?;
         fs::remove_file(path).map_err(io_err(path))?;
     }
-    Ok(())
+    Ok(target)
 }
 
 /// File format of `write_stats` output.

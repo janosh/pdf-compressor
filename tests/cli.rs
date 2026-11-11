@@ -169,6 +169,9 @@ fn multiple_files_map_zip_entries_to_inputs_and_write_to_outdir() {
     // spelled) and via a symlinked dir is only uploaded once
     let pdf_a = tmp.pdf("in/a.pdf");
     tmp.pdf("in/sub/b.PDF");
+    // hidden entries (macOS resource forks, VCS dirs) are skipped
+    tmp.pdf("in/._a.pdf");
+    tmp.pdf("in/.git/x.pdf");
     fs::write(tmp.path().join("in/notes.txt"), "ignored inside dirs").unwrap();
     #[cfg(unix)]
     std::os::unix::fs::symlink("..", tmp.path().join("in/sub/loop")).unwrap();
@@ -203,6 +206,11 @@ fn multiple_files_map_zip_entries_to_inputs_and_write_to_outdir() {
     assert_eq!(fs::read(outdir.join("a.pdf")).unwrap(), b"AAA");
     assert_eq!(fs::read(outdir.join("b.PDF")).unwrap(), b"BBBB");
     assert!(stdout(&out).contains("[2/2] 'b.PDF'"), "{}", stdout(&out));
+    assert!(
+        stdout(&out).contains("Saved 25.9KB in total across 2 files: 25.9KB -> 7.0B"),
+        "{}",
+        stdout(&out)
+    );
     assert!(
         !api.request("/v1/process")
             .form()
@@ -279,11 +287,22 @@ fn in_place_replaces_original() {
     let pdf = tmp.pdf("doc.pdf");
     // pre-existing Trash entry with same name must survive
     fs::write(tmp.path().join(".Trash/doc.pdf"), "old").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&pdf, fs::Permissions::from_mode(0o600)).unwrap();
+    }
     let api = MockServer::ilovepdf(vec![SMALL.to_vec()]);
 
     let out = run_cli(tmp.path(), Some(&api), &["-i", pdf.to_str().unwrap()]);
     assert!(out.status.success(), "{}", stderr(&out));
     assert_eq!(fs::read(&pdf).unwrap(), SMALL);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = fs::metadata(&pdf).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o600, "in-place replacement must keep permissions");
+    }
     if cfg!(target_os = "macos") {
         assert_eq!(fs::read(tmp.path().join(".Trash/doc.pdf")).unwrap(), b"old");
         assert_eq!(
@@ -339,6 +358,7 @@ fn input_errors_fail_before_any_api_request() {
     let pdf = tmp.pdf("d/doc.pdf");
     tmp.pdf("d/doc_c.pdf");
     tmp.pdf("other/doc.pdf");
+    tmp.pdf("upper/Doc.pdf");
     fs::write(tmp.path().join("d/notes.txt"), "").unwrap();
     let path = |rel: &str| tmp.path().join(rel).to_str().unwrap().to_owned();
     let (pdf, dir) = (pdf.to_str().unwrap().to_owned(), path("d"));
@@ -346,6 +366,11 @@ fn input_errors_fail_before_any_api_request() {
         (vec![&pdf, "-s", ""], "would overwrite an input PDF"),
         (
             vec![&pdf, "-s", "", "-o", &dir],
+            "would overwrite an input PDF",
+        ),
+        // new/ doesn't exist yet, but new/../d is d
+        (
+            vec![&pdf, "-s", "", "-o", &path("new/../d")],
             "would overwrite an input PDF",
         ),
         // doc.pdf -> doc_c.pdf would clobber the other input
@@ -388,6 +413,18 @@ fn input_errors_fail_before_any_api_request() {
             "{args:?} made requests: {:?}",
             api.paths()
         );
+    }
+    // Doc.pdf and doc.pdf are the same file on default macOS/Windows file systems
+    if cfg!(any(target_os = "macos", windows)) {
+        let api = MockServer::ilovepdf(vec![]);
+        let args = [&pdf, &path("upper/Doc.pdf"), "-o", &path("out2"), "-s", ""];
+        let out = run_cli(tmp.path(), Some(&api), &args);
+        assert!(
+            stderr(&out).contains("multiple inputs would be written to"),
+            "{}",
+            stderr(&out)
+        );
+        assert!(api.paths().is_empty());
     }
 }
 

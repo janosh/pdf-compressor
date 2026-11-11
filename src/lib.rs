@@ -27,5 +27,5 @@ pub use compress::{
     Action, FileStats, Options, Output, StatsFormat, collect_pdfs, compress_files, output_paths,
     write_stats,
 };
-pub use config::{API_KEY_ENV, api_key, config_path, set_api_key};
+pub use config::{api_key, set_api_key};
 pub use error::{Error, Result};

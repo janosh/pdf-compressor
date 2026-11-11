@@ -14,8 +14,6 @@ pub enum Error {
     MissingApiKey {
         config_path: PathBuf,
     },
-    /// `set_api_key` got a key without the `project_public_` prefix.
-    InvalidApiKey(String),
     /// Bad user input caught before any API request is made.
     Input(String),
     /// iLovePDF answered with a non-2xx status.
@@ -49,12 +47,6 @@ impl fmt::Display for Error {
                  {API_KEY_ENV} environment variable",
                 config_path.display()
             ),
-            Self::InvalidApiKey(key) => {
-                write!(
-                    f,
-                    "invalid API key, must start with 'project_public_', got {key:?}"
-                )
-            }
             Self::Input(msg) | Self::Api(msg) => f.write_str(msg),
             Self::Http { url, status, body } => {
                 write!(f, "{url} returned HTTP {status}: {body}")

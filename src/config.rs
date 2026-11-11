@@ -56,7 +56,9 @@ pub fn api_key() -> Result<String> {
 pub fn set_api_key(key: &str) -> Result<PathBuf> {
     let key = key.trim();
     if !key.starts_with("project_public_") {
-        return Err(Error::InvalidApiKey(key.to_owned()));
+        return Err(Error::Input(format!(
+            "invalid API key, must start with 'project_public_', got {key:?}"
+        )));
     }
     let path = config_path()?;
     if let Some(dir) = path.parent() {

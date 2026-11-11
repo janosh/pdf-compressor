@@ -13,10 +13,7 @@ pub enum Output {
     /// Replace originals (moved to the Trash on macOS, overwritten elsewhere).
     InPlace,
     /// Write `{stem}{suffix}.pdf` into `dir`, or next to each original if `dir` is `None`.
-    Copy {
-        dir: Option<PathBuf>,
-        suffix: String,
-    },
+    Copy { dir: Option<PathBuf>, suffix: String },
 }
 
 #[derive(Clone, Debug)]
@@ -92,8 +89,7 @@ pub fn collect_pdfs(paths: &[PathBuf]) -> Result<(Vec<PathBuf>, Vec<PathBuf>)> {
 }
 
 fn is_pdf(path: &Path) -> bool {
-    path.extension()
-        .is_some_and(|ext| ext.eq_ignore_ascii_case("pdf"))
+    path.extension().is_some_and(|ext| ext.eq_ignore_ascii_case("pdf"))
 }
 
 fn walk_pdfs(dir: &Path, add: &mut impl FnMut(PathBuf) -> Result<()>) -> Result<()> {
@@ -129,20 +125,14 @@ pub fn output_paths(pdfs: &[PathBuf], output: &Output) -> Result<Vec<PathBuf>> {
     if let Some(dir) = dir {
         fs::create_dir_all(dir).map_err(io_err(dir))?;
     }
-    let inputs: HashSet<PathBuf> = pdfs
-        .iter()
-        .map(|pdf| normalize(pdf))
-        .collect::<Result<_>>()?;
+    let inputs: HashSet<PathBuf> = pdfs.iter().map(|pdf| normalize(pdf)).collect::<Result<_>>()?;
     let mut dests = HashSet::new();
     pdfs.iter()
         .map(|pdf| {
             let stem = pdf.file_stem().unwrap_or_default().to_string_lossy();
             let ext = pdf.extension().unwrap_or_default().to_string_lossy();
             let parent = pdf.parent().unwrap_or(Path::new(""));
-            let dest = dir
-                .as_deref()
-                .unwrap_or(parent)
-                .join(format!("{stem}{suffix}.{ext}"));
+            let dest = dir.as_deref().unwrap_or(parent).join(format!("{stem}{suffix}.{ext}"));
             let key = normalize(&dest)?;
             if inputs.contains(&key) {
                 return Err(Error::Input(format!(
@@ -166,14 +156,9 @@ pub fn output_paths(pdfs: &[PathBuf], output: &Output) -> Result<Vec<PathBuf>> {
 // Comparison key for a file that may not exist yet: canonical parent + file name, case-folded
 // where the default file systems are case-insensitive (macOS, Windows).
 fn normalize(path: &Path) -> Result<PathBuf> {
-    let parent = path
-        .parent()
-        .filter(|dir| !dir.as_os_str().is_empty())
-        .unwrap_or(Path::new("."));
-    let key = parent
-        .canonicalize()
-        .map_err(io_err(parent))?
-        .join(path.file_name().unwrap_or_default());
+    let parent = path.parent().filter(|dir| !dir.as_os_str().is_empty()).unwrap_or(Path::new("."));
+    let key =
+        parent.canonicalize().map_err(io_err(parent))?.join(path.file_name().unwrap_or_default());
     if cfg!(any(target_os = "macos", windows)) {
         return Ok(PathBuf::from(key.to_string_lossy().to_lowercase()));
     }
@@ -276,87 +261,46 @@ fn move_to_trash(path: &Path) -> Result<PathBuf> {
     Ok(target)
 }
 
-/// File format of `write_stats` output.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum StatsFormat {
-    Csv,
-    Json,
-}
-
-impl StatsFormat {
-    /// Pick the format from `path`'s extension and check its directory exists. Call before
-    /// compressing so a typo doesn't waste API quota.
-    pub fn from_path(path: &Path) -> Result<Self> {
-        let ext = path.extension().unwrap_or_default().to_string_lossy();
-        let format = match ext.to_lowercase().as_str() {
-            "csv" => Self::Csv,
-            "json" => Self::Json,
-            _ => {
-                return Err(Error::Input(format!(
-                    "stats path must end in .csv or .json, got {}",
-                    path.display()
-                )));
-            }
-        };
-        match path.parent() {
-            Some(dir) if !dir.as_os_str().is_empty() && !dir.is_dir() => Err(Error::Input(
-                format!("stats dir {} does not exist", dir.display()),
-            )),
-            _ => Ok(format),
+/// Check `path` is a `.csv` file in an existing dir. Call before compressing so a typo
+/// doesn't fail after the API work is done.
+pub fn check_stats_path(path: &Path) -> Result<()> {
+    let ext = path.extension().unwrap_or_default();
+    if !ext.eq_ignore_ascii_case("csv") {
+        return Err(Error::Input(format!("stats path must end in .csv, got {}", path.display())));
+    }
+    match path.parent() {
+        Some(dir) if !dir.as_os_str().is_empty() && !dir.is_dir() => {
+            Err(Error::Input(format!("stats dir {} does not exist", dir.display())))
         }
+        _ => Ok(()),
     }
 }
 
-/// Write stats as CSV or JSON, chosen by `path`'s extension.
+/// Write per-file stats as CSV.
 pub fn write_stats(stats: &[FileStats], path: &Path) -> Result<()> {
-    let row = |stat: &FileStats| {
+    check_stats_path(path)?;
+    let quote = |field: &str| format!("\"{}\"", field.replace('"', "\"\""));
+    let mut csv = String::from(
+        "file,original size (B),compressed size (B),size reduction (B),size reduction (%),action\n",
+    );
+    for stat in stats {
         let action = match &stat.action {
             Action::ReplacedOriginal => "replaced original".to_owned(),
             Action::SavedAs(dest) => format!("saved as {}", dest.display()),
             Action::KeptOriginal => "kept original".to_owned(),
             Action::Failed(err) => format!("failed: {err}"),
         };
-        (stat.path.display().to_string(), action)
-    };
-    let content = match StatsFormat::from_path(path)? {
-        StatsFormat::Csv => {
-            let quote = |field: &str| format!("\"{}\"", field.replace('"', "\"\""));
-            let mut csv = String::from(
-                "file,original size (B),compressed size (B),size reduction (B),size reduction (%),action\n",
-            );
-            for stat in stats {
-                let (file, action) = row(stat);
-                csv += &format!(
-                    "{},{},{},{},{:.4},{}\n",
-                    quote(&file),
-                    stat.original_size,
-                    stat.compressed_size,
-                    stat.reduction(),
-                    stat.reduction_ratio() * 100.0,
-                    quote(&action)
-                );
-            }
-            csv
-        }
-        StatsFormat::Json => {
-            let rows: Vec<_> = stats
-                .iter()
-                .map(|stat| {
-                    let (file, action) = row(stat);
-                    serde_json::json!({
-                        "file": file,
-                        "original_size": stat.original_size,
-                        "compressed_size": stat.compressed_size,
-                        "size_reduction": stat.reduction(),
-                        "size_reduction_pct": stat.reduction_ratio() * 100.0,
-                        "action": action,
-                    })
-                })
-                .collect();
-            serde_json::to_string_pretty(&rows).expect("JSON values always serialize") + "\n"
-        }
-    };
-    fs::write(path, content).map_err(io_err(path))
+        csv += &format!(
+            "{},{},{},{},{:.4},{}\n",
+            quote(&stat.path.display().to_string()),
+            stat.original_size,
+            stat.compressed_size,
+            stat.reduction(),
+            stat.reduction_ratio() * 100.0,
+            quote(&action)
+        );
+    }
+    fs::write(path, csv).map_err(io_err(path))
 }
 
 #[cfg(test)]
@@ -397,31 +341,6 @@ mod tests {
                 expected,
                 "{orig} -> {comp} at {min_pct}%"
             );
-        }
-    }
-
-    #[test]
-    fn stats_format_by_extension() {
-        assert_eq!(
-            StatsFormat::from_path(Path::new("stats.CSV")).unwrap(),
-            StatsFormat::Csv
-        );
-        assert_eq!(
-            StatsFormat::from_path(Path::new("stats.json")).unwrap(),
-            StatsFormat::Json
-        );
-        for (bad, msg) in [
-            ("stats.xlsx", "must end in .csv or .json"),
-            ("stats", "must end in .csv or .json"),
-            (
-                "no/such/dir/stats.csv",
-                "stats dir no/such/dir does not exist",
-            ),
-        ] {
-            let err = StatsFormat::from_path(Path::new(bad))
-                .unwrap_err()
-                .to_string();
-            assert!(err.contains(msg), "{bad}: {err}");
         }
     }
 }

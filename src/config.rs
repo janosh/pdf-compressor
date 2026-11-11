@@ -8,37 +8,25 @@ use crate::error::{Error, Result, io_err};
 pub const API_KEY_ENV: &str = "ILOVEPDF_PUBLIC_KEY";
 
 /// File the API key is stored in by `set_api_key`:
-/// `$XDG_CONFIG_HOME/pdf-compressor/api-key`, falling back to `~/.config/...` on Unix and
-/// `%APPDATA%\pdf-compressor\api-key` on Windows.
+/// `$XDG_CONFIG_HOME/pdf-compressor/api-key`, falling back to `%APPDATA%\...` on Windows and
+/// `~/.config/...` elsewhere.
 pub fn config_path() -> Result<PathBuf> {
-    let non_empty = |var: &str| {
-        env::var_os(var)
-            .filter(|val| !val.is_empty())
-            .map(PathBuf::from)
-    };
+    let non_empty = |var: &str| env::var_os(var).filter(|val| !val.is_empty()).map(PathBuf::from);
     let base = non_empty("XDG_CONFIG_HOME")
         .or_else(|| {
             if cfg!(windows) {
                 non_empty("APPDATA")
             } else {
-                None
+                non_empty("HOME").map(|home| home.join(".config"))
             }
         })
-        .or_else(|| non_empty("HOME").map(|home| home.join(".config")))
-        .ok_or_else(|| {
-            Error::Input(
-                "can't locate config dir: none of XDG_CONFIG_HOME, APPDATA, HOME set".into(),
-            )
-        })?;
+        .ok_or_else(|| Error::Input("can't locate config dir: set XDG_CONFIG_HOME".into()))?;
     Ok(base.join("pdf-compressor").join("api-key"))
 }
 
 /// Read the API key from `ILOVEPDF_PUBLIC_KEY`, else from the config file.
 pub fn api_key() -> Result<String> {
-    if let Some(key) = env::var(API_KEY_ENV)
-        .ok()
-        .filter(|key| !key.trim().is_empty())
-    {
+    if let Some(key) = env::var(API_KEY_ENV).ok().filter(|key| !key.trim().is_empty()) {
         return Ok(key.trim().to_owned());
     }
     let config_path = config_path()?;

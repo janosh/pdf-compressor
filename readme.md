@@ -59,7 +59,7 @@ All inputs are validated (output paths, stats file type, file existence) before 
 | `--verbose`                | off             | Print full paths and the number of files to compress.                                                                               |
 | `--on-no-files`            | `ignore`        | `ignore` exits 0, `error` exits 1 when no input PDFs were found. Useful in shell scripts.                                           |
 | `--on-bad-files`           | `error`         | `error`, `warn` or `ignore` input files without a `.pdf` extension.                                                                 |
-| `--write-stats-path`       |                 | Write per-file original vs compressed sizes and actions taken to a `.csv` or `.json` file.                                          |
+| `--write-stats-path`       |                 | Write per-file original vs compressed sizes and actions taken to a `.csv` file.                                          |
 | `-v/--version`             |                 | Print the version.                                                                                                                  |
 
 Set `ILOVEPDF_API_URL` to point at a different API endpoint (default `https://api.ilovepdf.com`).
@@ -90,7 +90,7 @@ v1 is a Rust rewrite. The CLI keeps its flags with these exceptions:
 - `--set-api-key` writes to the user config dir instead of a `.env` file inside the installed package. Re-run it once after upgrading, or set `ILOVEPDF_PUBLIC_KEY`.
 - `--debug` was removed.
 - `--outdir` now actually places the compressed PDFs there (it previously only changed where the download was staged).
-- `--write-stats-path` supports `.csv` and `.json` (no more Excel/HTML or pandas dependency), and other extensions are an error instead of silently writing nothing.
+- `--write-stats-path` writes CSV only (no more JSON/Excel/HTML or pandas dependency), and other extensions are an error instead of silently writing nothing.
 - `.pdfa`/`.pdfx` extensions are no longer picked up; only `.pdf` (any case).
 - Errors exit with code 1 and a one-line message instead of a Python traceback.
 - Local file paths are no longer sent to iLovePDF; uploads are named `0.pdf`, `1.pdf`, ...

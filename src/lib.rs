@@ -24,8 +24,8 @@ mod error;
 
 pub use api::{Client, CompressionLevel, DEFAULT_API_URL};
 pub use compress::{
-    Action, FileStats, Options, Output, StatsFormat, collect_pdfs, compress_files, output_paths,
-    write_stats,
+    Action, FileStats, Options, Output, check_stats_path, collect_pdfs, compress_files,
+    output_paths, write_stats,
 };
 pub use config::{api_key, set_api_key};
 pub use error::{Error, Result};

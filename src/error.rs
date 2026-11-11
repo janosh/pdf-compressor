@@ -4,7 +4,6 @@ use std::path::PathBuf;
 use crate::config::API_KEY_ENV;
 
 pub type Result<T> = std::result::Result<T, Error>;
-type BoxError = Box<dyn std::error::Error + Send + Sync>;
 
 /// Everything that can go wrong while configuring, validating inputs or talking to iLovePDF.
 #[derive(Debug)]
@@ -25,7 +24,7 @@ pub enum Error {
     /// The request never got a response (DNS, TLS, connection, body decoding).
     Transport {
         url: String,
-        source: BoxError,
+        source: Box<dyn std::error::Error + Send + Sync>,
     },
     /// iLovePDF answered 2xx but with content we can't use.
     Api(String),
@@ -33,7 +32,6 @@ pub enum Error {
         path: PathBuf,
         source: std::io::Error,
     },
-    Zip(BoxError),
 }
 
 impl fmt::Display for Error {
@@ -53,7 +51,6 @@ impl fmt::Display for Error {
             }
             Self::Transport { url, source } => write!(f, "request to {url} failed: {source}"),
             Self::Io { path, source } => write!(f, "{}: {source}", path.display()),
-            Self::Zip(err) => write!(f, "failed to read ZIP archive from iLovePDF: {err}"),
         }
     }
 }
@@ -63,15 +60,8 @@ impl std::error::Error for Error {
         match self {
             Self::Transport { source, .. } => Some(source.as_ref()),
             Self::Io { source, .. } => Some(source),
-            Self::Zip(err) => Some(err.as_ref()),
             _ => None,
         }
-    }
-}
-
-impl From<zip::result::ZipError> for Error {
-    fn from(err: zip::result::ZipError) -> Self {
-        Self::Zip(err.into())
     }
 }
 

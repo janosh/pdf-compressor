@@ -52,54 +52,6 @@ pub struct Request {
 }
 
 impl Request {
-    // Parts of a multipart/form-data body as (name, filename, content). Panics on malformed
-    // framing, e.g. a missing closing boundary.
-    pub fn multipart(&self) -> Vec<(String, Option<String>, Vec<u8>)> {
-        let content_type = &self.headers["content-type"];
-        let boundary = content_type.split_once("boundary=").expect("boundary").1;
-        let delim = format!("--{boundary}");
-        let closing = format!("\r\n--{boundary}--\r\n");
-        assert!(
-            self.body.starts_with(delim.as_bytes()),
-            "body must open with boundary"
-        );
-        assert!(
-            self.body.ends_with(closing.as_bytes()),
-            "body must end with closing boundary"
-        );
-        let inner = &self.body[delim.len()..self.body.len() - closing.len()];
-        let sep = format!("\r\n--{boundary}");
-        let mut parts = Vec::new();
-        let mut rest = inner;
-        loop {
-            let end = rest
-                .windows(sep.len())
-                .position(|win| win == sep.as_bytes());
-            let part = &rest[..end.unwrap_or(rest.len())];
-            let part = part.strip_prefix(b"\r\n").expect("CRLF after boundary");
-            let head_end = part
-                .windows(4)
-                .position(|win| win == b"\r\n\r\n")
-                .expect("part head");
-            let head = String::from_utf8_lossy(&part[..head_end]).into_owned();
-            let attr = |key: &str| {
-                head.split(&format!("{key}=\""))
-                    .nth(1)
-                    .map(|val| val.split('"').next().unwrap_or_default().to_owned())
-            };
-            parts.push((
-                attr("name").expect("part name"),
-                attr("filename"),
-                part[head_end + 4..].to_vec(),
-            ));
-            match end {
-                Some(end) => rest = &rest[end + sep.len()..],
-                None => break,
-            }
-        }
-        parts
-    }
-
     // Decoded application/x-www-form-urlencoded body.
     pub fn form(&self) -> HashMap<String, String> {
         let decode = |s: &str| {
@@ -162,21 +114,11 @@ impl MockServer {
                     let (key, val) = header.split_once(':').expect("header colon");
                     headers.insert(key.trim().to_lowercase(), val.trim().to_owned());
                 }
-                assert!(
-                    !headers.contains_key("transfer-encoding"),
-                    "chunked bodies unsupported"
-                );
-                let len = headers
-                    .get("content-length")
-                    .map_or(0, |len| len.parse().expect("len"));
+                assert!(!headers.contains_key("transfer-encoding"), "chunked bodies unsupported");
+                let len = headers.get("content-length").map_or(0, |len| len.parse().expect("len"));
                 let mut body = vec![0; len];
                 reader.read_exact(&mut body).expect("read body");
-                let request = Request {
-                    method,
-                    path,
-                    headers,
-                    body,
-                };
+                let request = Request { method, path, headers, body };
                 let (status, resp_body) = handler(&request);
                 recorded.lock().expect("lock").push(request);
                 let head = format!(
@@ -218,11 +160,8 @@ impl MockServer {
                 let idx = n_uploads.fetch_add(1, Ordering::SeqCst);
                 json(serde_json::json!({"server_filename": format!("srv{idx}")}))
             } else if path == "/v1/process" {
-                let n_files = req
-                    .form()
-                    .keys()
-                    .filter(|key| key.ends_with("[server_filename]"))
-                    .count();
+                let n_files =
+                    req.form().keys().filter(|key| key.ends_with("[server_filename]")).count();
                 json(serde_json::json!({"output_filenumber": n_files, "download_filename": "x"}))
             } else if path == "/v1/download/T1" {
                 if outputs.len() == 1 {
@@ -242,10 +181,7 @@ impl MockServer {
             } else if path == "/v1/task/T1" && req.method == "DELETE" {
                 json(serde_json::json!({}))
             } else {
-                (
-                    404,
-                    format!("no mock for {} {path}", req.method).into_bytes(),
-                )
+                (404, format!("no mock for {} {path}", req.method).into_bytes())
             }
         })
     }
@@ -273,9 +209,7 @@ impl MockServer {
 pub fn zip_entries(entries: impl IntoIterator<Item = (String, Vec<u8>)>) -> Vec<u8> {
     let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
     for (name, content) in entries {
-        writer
-            .start_file(name, zip::write::SimpleFileOptions::default())
-            .expect("zip entry");
+        writer.start_file(name, zip::write::SimpleFileOptions::default()).expect("zip entry");
         writer.write_all(&content).expect("zip write");
     }
     writer.finish().expect("zip finish").into_inner()
@@ -289,10 +223,7 @@ pub fn run_cli(home: &Path, api: Option<&MockServer>, args: &[&str]) -> Output {
         .env("HOME", home)
         .env("XDG_CONFIG_HOME", home.join("config"))
         .env("APPDATA", home.join("config"))
-        .env(
-            "ILOVEPDF_API_URL",
-            api.map_or("http://127.0.0.1:9", |api| api.url.as_str()),
-        );
+        .env("ILOVEPDF_API_URL", api.map_or("http://127.0.0.1:9", |api| api.url.as_str()));
     if api.is_some() {
         cmd.env("ILOVEPDF_PUBLIC_KEY", "project_public_test");
     }

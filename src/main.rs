@@ -4,7 +4,6 @@ use std::process::ExitCode;
 use clap::{ArgAction, Parser, ValueEnum};
 use pdf_compressor::{
     Action, Client, CompressionLevel, DEFAULT_API_URL, Error, FileStats, Options, Output, Result,
-    StatsFormat,
 };
 
 /// Environment variable overriding the iLovePDF API base URL.
@@ -62,7 +61,7 @@ struct Cli {
     #[arg(long, value_enum, default_value_t = OnBadFiles::Error)]
     on_bad_files: OnBadFiles,
 
-    /// Write per-file size stats to a .csv or .json file.
+    /// Write per-file size stats to a .csv file.
     #[arg(long, value_name = "PATH")]
     write_stats_path: Option<PathBuf>,
 
@@ -96,13 +95,8 @@ fn main() -> ExitCode {
 }
 
 fn client() -> Result<Client> {
-    let api_url = std::env::var(API_URL_ENV)
-        .ok()
-        .filter(|url| !url.trim().is_empty());
-    Client::new(
-        &pdf_compressor::api_key()?,
-        api_url.as_deref().unwrap_or(DEFAULT_API_URL),
-    )
+    let api_url = std::env::var(API_URL_ENV).ok().filter(|url| !url.trim().is_empty());
+    Client::new(&pdf_compressor::api_key()?, api_url.as_deref().unwrap_or(DEFAULT_API_URL))
 }
 
 // Returns whether every file was handled successfully.
@@ -120,15 +114,8 @@ fn run(cli: Cli) -> Result<bool> {
 
     let (pdfs, not_pdfs) = pdf_compressor::collect_pdfs(&cli.paths)?;
     if !not_pdfs.is_empty() {
-        let list: Vec<_> = not_pdfs
-            .iter()
-            .map(|path| path.display().to_string())
-            .collect();
-        let msg = format!(
-            "{} input files aren't PDFs: {}",
-            list.len(),
-            list.join(", ")
-        );
+        let list: Vec<_> = not_pdfs.iter().map(|path| path.display().to_string()).collect();
+        let msg = format!("{} input files aren't PDFs: {}", list.len(), list.join(", "));
         match cli.on_bad_files {
             OnBadFiles::Error => return Err(Error::Input(msg)),
             OnBadFiles::Warn => eprintln!("warning: {msg}"),
@@ -149,23 +136,18 @@ fn run(cli: Cli) -> Result<bool> {
 
     let opts = Options {
         level: cli.compression_level,
-        min_size_reduction: cli
-            .min_size_reduction
-            .unwrap_or(if cli.inplace { 10 } else { 0 }),
+        min_size_reduction: cli.min_size_reduction.unwrap_or(if cli.inplace { 10 } else { 0 }),
         output: if cli.inplace {
             Output::InPlace
         } else {
-            Output::Copy {
-                dir: cli.outdir,
-                suffix: cli.suffix,
-            }
+            Output::Copy { dir: cli.outdir, suffix: cli.suffix }
         },
         password: cli.password,
     };
     // fail on bad inputs before any network request
     pdf_compressor::output_paths(&pdfs, &opts.output)?;
     if let Some(path) = &cli.write_stats_path {
-        StatsFormat::from_path(path)?;
+        pdf_compressor::check_stats_path(path)?;
     }
     if cli.verbose {
         println!("PDFs to be compressed with iLovePDF: {}", pdfs.len());
@@ -203,9 +185,7 @@ fn run(cli: Cli) -> Result<bool> {
     if let Some(path) = &cli.write_stats_path {
         pdf_compressor::write_stats(&stats, path)?;
     }
-    Ok(!stats
-        .iter()
-        .any(|stat| matches!(stat.action, Action::Failed(_))))
+    Ok(!stats.iter().any(|stat| matches!(stat.action, Action::Failed(_))))
 }
 
 fn report_line(stat: &FileStats, verbose: bool, min_pct: u8) -> String {
@@ -230,10 +210,7 @@ fn report_line(stat: &FileStats, verbose: bool, min_pct: u8) -> String {
             format!("{sizes}, only {pct:.1}% smaller (needs more than {min_pct}%), kept original.")
         }
         Action::SavedAs(dest) => {
-            format!(
-                "{sizes}, {saved} = {pct:.0}% smaller. Saved as {}.",
-                dest.display()
-            )
+            format!("{sizes}, {saved} = {pct:.0}% smaller. Saved as {}.", dest.display())
         }
         Action::ReplacedOriginal if cfg!(target_os = "macos") => {
             format!("{sizes}, {saved} = {pct:.0}% smaller. Original moved to Trash.")

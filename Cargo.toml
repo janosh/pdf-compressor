@@ -1,0 +1,25 @@
+[package]
+name = "pdf-compressor"
+version = "1.0.0"
+edition = "2024"
+rust-version = "1.88"
+description = "CLI + Rust library for batch compressing PDFs with iLovePDF.com"
+authors = ["Janosh Riebesell <janosh.riebesell@gmail.com>"]
+license = "MIT"
+readme = "readme.md"
+repository = "https://github.com/janosh/pdf-compressor"
+keywords = ["cli", "compression", "ilovepdf", "pdf"]
+categories = ["command-line-utilities"]
+include = ["/src", "/license", "/readme.md"]
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+ureq = { version = "3", default-features = false, features = ["rustls", "json"] }
+zip = { version = "9", default-features = false, features = ["deflate"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true

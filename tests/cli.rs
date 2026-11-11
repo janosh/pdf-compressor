@@ -157,7 +157,7 @@ fn multiple_files_map_zip_entries_to_inputs_and_write_to_outdir() {
     assert_eq!(api.paths().iter().filter(|path| path.ends_with("/upload")).count(), 2);
     assert_eq!(fs::read(outdir.join("a.pdf")).unwrap(), b"AAA");
     assert_eq!(fs::read(outdir.join("b.PDF")).unwrap(), b"BBBB");
-    let b_line = format!("[2/2] '{}': ", tmp.path().join("in/sub/b.PDF").display());
+    let b_line = format!("[2/2] '{}': ", tmp.path().join("in").join("sub").join("b.PDF").display());
     assert!(stdout(&out).contains(&b_line), "{}", stdout(&out));
     assert!(
         stdout(&out).contains("Saved 25.9KB in total across 2 files: 25.9KB -> 7.0B"),

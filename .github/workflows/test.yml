@@ -92,6 +92,9 @@ jobs:
     if: github.event_name == 'release'
     needs: wheels
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # OIDC for trusted publishing, no stored registry tokens
     steps:
       - uses: actions/checkout@v6
 
@@ -117,7 +120,6 @@ jobs:
 
       - uses: astral-sh/setup-uv@v6
 
+      # trusted publisher configured on pypi.org for this repo + workflow
       - name: Publish to PyPI
-        run: uv publish dist/*
-        env:
-          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
+        run: uv publish --trusted-publishing always dist/*

@@ -113,10 +113,14 @@ jobs:
       # crates.io first: it re-verifies the build, so a failure there stops PyPI going out of sync
       - uses: dtolnay/rust-toolchain@stable
 
+      # trusted publisher configured on crates.io: exchanges the OIDC token for a short-lived one
+      - uses: rust-lang/crates-io-auth-action@v1
+        id: crates-io-auth
+
       - name: Publish to crates.io
         run: cargo publish
         env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ steps.crates-io-auth.outputs.token }}
 
       - uses: astral-sh/setup-uv@v6
 

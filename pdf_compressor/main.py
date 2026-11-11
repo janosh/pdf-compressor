@@ -168,7 +168,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     load_dotenv()
-    if not (api_key := os.environ[API_KEY_KEY]):
+    if not (api_key := os.environ.get(API_KEY_KEY)):
         raise MISSING_API_KEY_ERR
 
     if args.report_quota:
@@ -233,7 +233,7 @@ def compress(
         min_size_reduction = 10 if inplace else 0
 
     load_dotenv()
-    if not (api_key := os.environ[API_KEY_KEY]):
+    if not (api_key := os.environ.get(API_KEY_KEY)):
         raise MISSING_API_KEY_ERR
 
     if not (inplace or suffix):

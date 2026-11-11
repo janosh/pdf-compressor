@@ -13,7 +13,7 @@ from zipfile import ZipFile
 import pandas as pd
 import pytest
 
-from pdf_compressor import DEFAULT_SUFFIX, main
+from pdf_compressor import DEFAULT_SUFFIX, compress, main
 from pdf_compressor.main import API_KEY_KEY
 from pdf_compressor.utils import load_dotenv
 
@@ -251,3 +251,19 @@ def test_main_password_outdir_flags(
     stdout, stderr = capsys.readouterr()
     assert stdout == ""
     assert stderr == ""
+
+
+def test_main_missing_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the friendly error when no API key is configured."""
+    monkeypatch.delenv(API_KEY_KEY, raising=False)
+
+    with pytest.raises(KeyError, match="needs an iLovePDF public key"):
+        main([])
+
+
+def test_compress_missing_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the friendly error when compress() finds no API key."""
+    monkeypatch.delenv(API_KEY_KEY, raising=False)
+
+    with pytest.raises(KeyError, match="needs an iLovePDF public key"):
+        compress(["dummy.pdf"])

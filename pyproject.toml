@@ -1,65 +1,10 @@
+# Ships the Rust CLI as a PyPI wheel. Metadata comes from Cargo.toml, except the license file,
+# which only ends up in the wheel when listed here.
 [build-system]
-requires = ["uv_build>=0.11.20"]
-build-backend = "uv_build"
+requires = ["maturin>=1.9,<2"]
+build-backend = "maturin"
 
 [project]
 name = "pdf-compressor"
-version = "0.4.0"
-description = "CLI + Python API for batch compressing PDFs with iLovePDF.com"
-authors = [{ name = "Janosh Riebesell", email = "janosh.riebesell@gmail.com" }]
-readme = "readme.md"
-keywords = ["cli", "compression", "ilovepdf", "pdf"]
-classifiers = [
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3.14",
-]
-requires-python = ">=3.12"
-dependencies = ["requests >= 2.25.0"]
-license = { file = "license" }
-
-[project.urls]
-Homepage = "https://github.com/janosh/pdf-compressor"
-Package = "https://pypi.org/project/pdf-compressor"
-
-[project.optional-dependencies]
-test = ["pytest", "pytest-cov"]
-stats = ["pandas"]              # needed for --write-stats-path option
-
-[project.scripts]
-pdf-compressor = "pdf_compressor:main"
-
-[tool.uv.build-backend]
-module-name = "pdf_compressor"
-module-root = ""
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "-p no:warnings"
-
-[tool.ruff]
-target-version = "py312"
-
-[tool.ruff.lint]
-select = ["ALL"]
-ignore = [
-    "C901",    # Function is too complex
-    "COM",
-    "EM",      # Exception must not use a string literal
-    "PLR0912", # too many branches
-    "PLR0913", # too many arguments
-    "PLR0915", # too many statements
-    "PTH",     # Prefer pathlib over os.path
-    "SIM105",  # Use contextlib.suppress(FileNotFoundError) instead of try-except-pass
-    "T201",    # print found
-    "TRY003",  # Avoid specifying long messages outside the exception class
-]
-pydocstyle.convention = "google"
-isort.split-on-trailing-comma = false
-
-[tool.ruff.lint.per-file-ignores]
-"__init__.py" = ["F401"]
-"tests/*" = ["D103", "INP001", "S101"]
+dynamic = ["version", "description", "readme", "license", "keywords", "authors", "urls"]
+license-files = ["license"]

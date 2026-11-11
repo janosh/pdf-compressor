@@ -61,9 +61,9 @@ All inputs are validated (output paths, stats file type, file existence) before 
 
 Set `ILOVEPDF_API_URL` to point at a different API endpoint (default `https://api.ilovepdf.com`).
 
-## Migrating from v0.x (Python)
+## Migrating from v0.4 (Python)
 
-v1 is a Rust rewrite. The CLI keeps its flags with these exceptions:
+v0.5 is a Rust rewrite. The CLI keeps its flags with these exceptions:
 
 - The Python API (`from pdf_compressor import compress, Compress`) is gone. Call the CLI via `subprocess`.
 - `--verbose`, `--on-no-files` and `--on-bad-files` were removed: finding no PDFs exits 0 silently, passing a non-PDF file is an error, and results always show paths as given.

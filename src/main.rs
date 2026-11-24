@@ -39,7 +39,7 @@ struct Cli {
     inplace: bool,
 
     /// Appended to compressed file names. May be empty with --outdir.
-    #[arg(short, long, default_value = "-compressed")]
+    #[arg(short, long, default_value = compress::DEFAULT_SUFFIX)]
     suffix: String,
 
     /// Write compressed PDFs here instead of next to the originals.
@@ -213,7 +213,7 @@ fn report_line(stat: &FileStats, min_pct: u8) -> String {
         Action::ReplacedOriginal => {
             format!("{sizes}, {saved} = {pct:.0}% smaller. Original moved to the trash.")
         }
-        Action::Failed(err) => format!("{sizes}, failed to write: {err}"),
+        Action::Failed(err) => format!("{sizes}, failed: {err}"),
     }
 }
 

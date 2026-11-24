@@ -519,7 +519,7 @@ fn write_failure_is_per_file_and_stats_still_written() {
     );
     assert!(
         stderr(&out).contains(&format!(
-            "[2/2] '{}': 13.0KB -> 3.0B, failed to write",
+            "[2/2] '{}': 13.0KB -> 3.0B, failed: ",
             pdf_b.display()
         )),
         "{}",

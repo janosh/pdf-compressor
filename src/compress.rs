@@ -7,6 +7,9 @@ use std::path::{Path, PathBuf};
 use crate::api::{Client, CompressionLevel};
 use crate::error::{Error, Result, io_err};
 
+/// Suffix appended to compressed file names unless `--suffix` overrides it.
+pub const DEFAULT_SUFFIX: &str = "-compressed";
+
 /// Where compressed PDFs go.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Output {
@@ -36,7 +39,8 @@ pub enum Action {
     /// Compression didn't beat `min_size_reduction`, nothing was written.
     KeptOriginal,
     /// Writing the compressed file failed. The original is untouched unless the message
-    /// says it was moved to the trash (`--inplace`).
+    /// says it was moved to the trash (`--inplace`). If trashing the original failed, the
+    /// message says whether the compressed PDF was kept next to it.
     Failed(String),
 }
 
@@ -136,13 +140,11 @@ pub fn output_paths(pdfs: &[PathBuf], output: &Output) -> Result<Vec<PathBuf>> {
     let mut dests = HashSet::new();
     pdfs.iter()
         .map(|pdf| {
-            let stem = pdf.file_stem().unwrap_or_default().to_string_lossy();
-            let ext = pdf.extension().unwrap_or_default().to_string_lossy();
             let parent = pdf.parent().unwrap_or(Path::new(""));
             let dest = dir
                 .as_deref()
                 .unwrap_or(parent)
-                .join(format!("{stem}{suffix}.{ext}"));
+                .join(suffixed_name(pdf, suffix));
             let key = normalize(&dest)?;
             if inputs.contains(&key) {
                 return Err(Error::Input(format!(
@@ -161,6 +163,13 @@ pub fn output_paths(pdfs: &[PathBuf], output: &Output) -> Result<Vec<PathBuf>> {
             Ok(dest)
         })
         .collect()
+}
+
+// File name for the compressed version of `pdf`: `{stem}{suffix}.{ext}`.
+fn suffixed_name(pdf: &Path, suffix: &str) -> String {
+    let stem = pdf.file_stem().unwrap_or_default().to_string_lossy();
+    let ext = pdf.extension().unwrap_or_default().to_string_lossy();
+    format!("{stem}{suffix}.{ext}")
 }
 
 // Comparison key for a file that may not exist yet: canonical parent + file name, case-folded
@@ -205,7 +214,7 @@ pub fn compress_files(client: &Client, pdfs: &[PathBuf], opts: &Options) -> Resu
                 action: Action::KeptOriginal,
             };
             if worth_keeping(&stats, opts.min_size_reduction) {
-                stats.action = match place(pdf, &dest, &bytes, in_place) {
+                stats.action = match place(pdf, &dest, &bytes, in_place, move_to_trash) {
                     Ok(()) if in_place => Action::ReplacedOriginal,
                     Ok(()) => Action::SavedAs(dest),
                     Err(err) => Action::Failed(err.to_string()),
@@ -225,7 +234,15 @@ fn worth_keeping(stats: &FileStats, min_pct: u8) -> bool {
 
 // Write `bytes` to `dest` atomically: a temp file in the same dir, renamed over `dest`.
 // So a failed write never truncates an existing file.
-fn place(pdf: &Path, dest: &Path, bytes: &[u8], in_place: bool) -> Result<()> {
+// With `in_place`, `trash` removes the original first (injected so tests needn't touch the
+// real system trash).
+fn place(
+    pdf: &Path,
+    dest: &Path,
+    bytes: &[u8],
+    in_place: bool,
+    trash: impl FnOnce(&Path) -> Result<()>,
+) -> Result<()> {
     let name = dest.file_name().unwrap_or_default().to_string_lossy();
     let tmp = dest.with_file_name(format!(".{name}.tmp"));
     let staged = fs::write(&tmp, bytes).map_err(io_err(&tmp)).and_then(|()| {
@@ -233,7 +250,7 @@ fn place(pdf: &Path, dest: &Path, bytes: &[u8], in_place: bool) -> Result<()> {
             // keep the original's permissions, e.g. a private 0600 document
             let perms = fs::metadata(pdf).map_err(io_err(pdf))?.permissions();
             fs::set_permissions(&tmp, perms).map_err(io_err(&tmp))?;
-            move_to_trash(pdf)?;
+            trash(pdf).map_err(|err| keep_beside_original(&tmp, pdf, err))?;
         }
         Ok(())
     });
@@ -253,6 +270,25 @@ fn place(pdf: &Path, dest: &Path, bytes: &[u8], in_place: bool) -> Result<()> {
     })
 }
 
+// Trashing the original failed, so it stays where it is. Rather than discard the compressed
+// result (and the API quota spent on it), save it next to the original under the name a run
+// without --inplace would use. The file still counts as failed. A hard link never replaces an
+// existing file (unlike rename); the caller then deletes `tmp` either way.
+fn keep_beside_original(tmp: &Path, pdf: &Path, trash_err: Error) -> Error {
+    let kept = pdf.with_file_name(suffixed_name(pdf, DEFAULT_SUFFIX));
+    let kept_str = kept.display();
+    let outcome = match fs::hard_link(tmp, &kept) {
+        Ok(()) => {
+            format!("compressed PDF saved as {kept_str}, replace the original with it by hand")
+        }
+        Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {
+            format!("compressed PDF discarded, {kept_str} already exists")
+        }
+        Err(err) => format!("compressed PDF discarded, saving it as {kept_str} failed: {err}"),
+    };
+    Error::Input(format!("{outcome}. {trash_err}"))
+}
+
 /// Move a file to the system trash (macOS Trash, Windows Recycle Bin, freedesktop trash).
 fn move_to_trash(path: &Path) -> Result<()> {
     #[allow(unused_mut)] // only mutated on macOS
@@ -264,9 +300,17 @@ fn move_to_trash(path: &Path) -> Result<()> {
         &mut trash,
         trash::macos::DeleteMethod::NsFileManager,
     );
+    // macOS reports refused access with a generic error, so say what usually fixes it
+    let hint = if cfg!(target_os = "macos") {
+        " (if access was denied: grant your terminal Full Disk Access in System Settings > \
+         Privacy & Security, then quit it with Cmd+Q and reopen it, or retry once iCloud \
+         finishes syncing the file)"
+    } else {
+        ""
+    };
     trash.delete(path).map_err(|err| {
         Error::Input(format!(
-            "moving {} to the trash failed: {err}",
+            "moving {} to the trash failed: {err}{hint}",
             path.display()
         ))
     })
@@ -336,6 +380,59 @@ mod tests {
         assert_eq!(stat(100, 75).reduction_ratio(), 0.25);
         assert_eq!(stat(100, 150).reduction(), -50);
         assert_eq!(stat(0, 0).reduction_ratio(), 0.0);
+    }
+
+    #[test]
+    fn in_place_keeps_compressed_pdf_when_trash_fails() {
+        // (existing doc-compressed.pdf, trash works, doc.pdf after, doc-compressed.pdf after, error)
+        let rows = [
+            (None, true, "small", None, ""),
+            (None, false, "original", Some("small"), "PDF saved as"),
+            (
+                Some("older"),
+                false,
+                "original",
+                Some("older"),
+                "already exists",
+            ),
+        ];
+        for (row_idx, (existing_kept, trash_ok, pdf_after, kept_after, err_part)) in
+            rows.into_iter().enumerate()
+        {
+            // row index, not values: Windows forbids e.g. `"` in file names
+            let dir = std::env::temp_dir().join(format!(
+                "pdf-compressor-place-{}-{row_idx}",
+                std::process::id()
+            ));
+            fs::create_dir_all(&dir).unwrap();
+            let pdf = dir.join("doc.pdf");
+            let kept = dir.join(format!("doc{DEFAULT_SUFFIX}.pdf"));
+            fs::write(&pdf, "original").unwrap();
+            if let Some(text) = existing_kept {
+                fs::write(&kept, text).unwrap();
+            }
+
+            let trash = |path: &Path| match trash_ok {
+                true => fs::remove_file(path).map_err(io_err(path)),
+                false => Err(Error::Input("trash refused".to_owned())),
+            };
+            let err = place(&pdf, &pdf, b"small", true, trash)
+                .err()
+                .map(|err| err.to_string())
+                .unwrap_or_default();
+            assert_eq!(err.is_empty(), trash_ok, "{err}");
+            assert!(trash_ok || err.ends_with(". trash refused"), "{err}");
+            assert!(err.contains(err_part), "{err}");
+            assert_eq!(fs::read_to_string(&pdf).unwrap(), pdf_after);
+            assert_eq!(fs::read_to_string(&kept).ok().as_deref(), kept_after);
+            let n_files = fs::read_dir(&dir).unwrap().count();
+            assert_eq!(
+                n_files,
+                1 + usize::from(kept_after.is_some()),
+                "temp file left"
+            );
+            fs::remove_dir_all(&dir).unwrap();
+        }
     }
 
     #[test]
